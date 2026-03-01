@@ -1,0 +1,28 @@
+{
+  "name": "antrianrpetra",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.97.0",
+    "@tailwindcss/postcss": "^4.2.1",
+    "@zxing/browser": "^0.1.5",
+    "cloudinary": "^2.9.0",
+    "html5-qrcode": "^2.3.8",
+    "pinia": "^3.0.4",
+    "postcss": "^8.5.6",
+    "qrcode": "^1.5.4",
+    "tailwindcss": "^4.2.1",
+    "vue": "^3.5.25",
+    "vue-router": "^5.0.3"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.2",
+    "vite": "^7.3.1"
+  }
+}
