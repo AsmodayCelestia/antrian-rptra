@@ -39,7 +39,7 @@ export const generateNomorAntrian = async (formData) => {
   return data
 }
 
-// ⭐ TAMBAHAN: Cek KK sudah terdaftar di kuota ini
+// Cek KK sudah terdaftar di kuota ini
 export const checkKKExists = async (nomor_kk, kuota_id) => {
   const { data, error } = await supabase
     .from('antrian')
@@ -49,7 +49,25 @@ export const checkKKExists = async (nomor_kk, kuota_id) => {
     .maybeSingle()
   
   if (error) throw error
-  return data // return data kalo ada, null kalo ga ada
+  return data
+}
+
+// ⭐ UPDATE: Tambah alasan untuk status ditolak
+export const updateStatusAntrian = async (id, status, alasan = null) => {
+  const updateData = { status }
+  
+  if (status === 'selesai') updateData.selesai_at = new Date().toISOString()
+  if (status === 'ditolak' && alasan) updateData.alasan_ditolak = alasan
+  
+  const { data, error } = await supabase
+    .from('antrian')
+    .update(updateData)
+    .eq('id', id)
+    .select()
+    .single()
+  
+  if (error) throw error
+  return data
 }
 
 export const getAllAntrian = async () => {
@@ -78,23 +96,6 @@ export const getAntrianById = async (id) => {
   return data
 }
 
-export const updateStatusAntrian = async (id, status) => {
-  const updateData = { status }
-  
-  if (status === 'dipanggil') updateData.dipanggil_at = new Date().toISOString()
-  if (status === 'selesai') updateData.selesai_at = new Date().toISOString()
-  
-  const { data, error } = await supabase
-    .from('antrian')
-    .update(updateData)
-    .eq('id', id)
-    .select()
-    .single()
-  
-  if (error) throw error
-  return data
-}
-
 export const getKuotaAktif = async (rptraId) => {
   const now = new Date()
   const bulan = now.getMonth() + 1
@@ -112,6 +113,7 @@ export const getKuotaAktif = async (rptraId) => {
   return data
 }
 
+// ⭐ UPDATE: Ganti dipanggil jadi ditolak
 export const getStats = async () => {
   let query = supabase
     .from('antrian')
@@ -127,11 +129,12 @@ export const getStats = async () => {
   return {
     total: data?.length || 0,
     menunggu: data?.filter(a => a.status === 'menunggu').length || 0,
-    dipanggil: data?.filter(a => a.status === 'dipanggil').length || 0,
+    ditolak: data?.filter(a => a.status === 'ditolak').length || 0,
     selesai: data?.filter(a => a.status === 'selesai').length || 0
   }
 }
 
+// ⭐ UPDATE: Validasi untuk status baru
 export const validateQR = async (nomor, kuota_id) => {
   const { data, error } = await supabase
     .from('antrian')
@@ -148,13 +151,17 @@ export const validateQR = async (nomor, kuota_id) => {
     return { valid: false, message: 'Antrian sudah selesai', data }
   }
   
+  if (data.status === 'ditolak') {
+    return { valid: false, message: 'Pendaftaran ditolak', data }
+  }
+  
   if (data.status === 'batal') {
     return { valid: false, message: 'Antrian dibatalkan', data }
   }
   
   return { 
     valid: true, 
-    message: data.status === 'menunggu' ? 'Antrian valid - Belum dipanggil' : 'Antrian sedang dipanggil',
+    message: data.status === 'menunggu' ? 'Antrian valid - Menunggu verifikasi' : 'Antrian sedang diproses',
     data 
   }
 }

@@ -29,9 +29,9 @@
         <p class="text-gray-500 text-sm">Menunggu</p>
         <p class="text-2xl font-bold text-yellow-600">{{ stats.menunggu }}</p>
       </div>
-      <div class="bg-white rounded-xl shadow p-4 border-l-4 border-blue-600">
-        <p class="text-gray-500 text-sm">Dipanggil</p>
-        <p class="text-2xl font-bold text-blue-600">{{ stats.dipanggil }}</p>
+      <div class="bg-white rounded-xl shadow p-4 border-l-4 border-red-500">
+        <p class="text-gray-500 text-sm">Ditolak</p>
+        <p class="text-2xl font-bold text-red-600">{{ stats.ditolak }}</p>
       </div>
       <div class="bg-white rounded-xl shadow p-4 border-l-4 border-green-500">
         <p class="text-gray-500 text-sm">Selesai</p>
@@ -114,6 +114,7 @@
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kartu</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Waktu</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
             </tr>
@@ -131,37 +132,54 @@
                   {{ item.status }}
                 </span>
               </td>
+              <!-- ⭐ Kolom Keterangan -->
+              <td class="px-4 py-3 text-sm max-w-xs">
+                <div v-if="item.status === 'selesai'" class="text-green-600 font-medium">
+                  ✓ Sudah ambil
+                </div>
+                <div v-else-if="item.status === 'ditolak'" class="text-red-600">
+                  {{ item.alasan_ditolak || 'Ditolak' }}
+                </div>
+                <div v-else-if="item.status === 'batal'" class="text-gray-500">
+                  Dibatalkan
+                </div>
+                <div v-else class="text-gray-400">-</div>
+              </td>
               <td class="px-4 py-3 text-xs text-gray-500">
                 {{ formatTime(item.created_at) }}
               </td>
               <td class="px-4 py-3">
-                <div class="flex gap-2">
+                <div class="flex gap-2 flex-wrap">
+                  <!-- ⭐ Download QR -->
                   <button 
-                    v-if="item.status === 'menunggu'"
-                    @click="updateStatus(item.id, 'dipanggil')"
-                    class="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-700"
+                    @click="downloadQR(item)"
+                    class="bg-blue-100 text-blue-600 hover:bg-blue-200 px-2 py-1 rounded text-xs"
+                    title="Download QR"
                   >
-                    Panggil
+                    📥 QR
                   </button>
-                  <button 
-                    v-if="item.status === 'dipanggil'"
-                    @click="updateStatus(item.id, 'selesai')"
-                    class="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700"
-                  >
-                    Selesai
-                  </button>
-                  <button 
-                    v-if="item.status !== 'batal'"
-                    @click="updateStatus(item.id, 'batal')"
-                    class="bg-red-100 text-red-600 px-2 py-1 rounded text-xs hover:bg-red-200"
-                  >
-                    Batal
-                  </button>
+                  
+                  <template v-if="item.status === 'menunggu'">
+                    <button 
+                      @click="updateStatus(item.id, 'selesai')"
+                      class="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700"
+                    >
+                      Verifikasi
+                    </button>
+                    <button 
+                      @click="showTolakModal(item)"
+                      class="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700"
+                    >
+                      Tolak
+                    </button>
+                  </template>
+                  
+                  <span v-else class="text-gray-400 text-xs">-</span>
                 </div>
               </td>
             </tr>
             <tr v-if="antrianList.length === 0">
-              <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+              <td colspan="7" class="px-4 py-8 text-center text-gray-500">
                 Belum ada antrian
               </td>
             </tr>
@@ -260,6 +278,53 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal: Tolak -->
+    <div v-if="showTolakItem" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+        <h3 class="text-xl font-bold text-red-600 mb-2">Tolak Pendaftaran</h3>
+        <p class="text-gray-600 text-sm mb-4">
+          Nomor #{{ showTolakItem.nomor_antrian }} - {{ showTolakItem.nama_pemilik_atm }}
+        </p>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Alasan Penolakan <span class="text-red-500">*</span></label>
+          <select v-model="alasanTolak" class="w-full border rounded-lg px-3 py-2 bg-white">
+            <option value="" disabled>Pilih alasan</option>
+            <option value="Bukan warga Pademangan Timur">Bukan warga Pademangan Timur</option>
+            <option value="KK sudah pernah daftar">KK sudah pernah daftar</option>
+            <option value="Data KK tidak valid">Data KK tidak valid</option>
+            <option value="Kartu pemanfaat tidak valid">Kartu pemanfaat tidak valid</option>
+            <option value="Tidak membawa dokumen lengkap">Tidak membawa dokumen lengkap</option>
+            <option value="Nomor antrian hangus">Nomor antrian hangus</option>
+            <option value="Lainnya">Lainnya</option>
+          </select>
+          <textarea 
+            v-if="alasanTolak === 'Lainnya'"
+            v-model="alasanLainnya"
+            rows="2"
+            class="w-full border rounded-lg px-3 py-2 mt-2"
+            placeholder="Sebutkan alasan..."
+          ></textarea>
+        </div>
+
+        <div class="flex gap-3">
+          <button 
+            @click="closeTolakModal"
+            class="flex-1 bg-gray-200 hover:bg-gray-300 py-2 rounded-lg"
+          >
+            Batal
+          </button>
+          <button 
+            @click="submitTolak"
+            :disabled="!alasanTolak || (alasanTolak === 'Lainnya' && !alasanLainnya)"
+            class="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white py-2 rounded-lg"
+          >
+            Tolak
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -269,9 +334,10 @@ import { user, isModerator } from '../../composables/useAuth'
 import { getAllAntrian, getStats, updateStatusAntrian, getKuotaAktif } from '../../composables/useAntrian'
 import { createKuota, updateKuota, toggleKuotaStatus, checkKuotaExists } from '../../composables/useKuota'
 import { supabase } from '../../lib/supabase'
+import QRCode from 'qrcode'
 
 const antrianList = ref([])
-const stats = ref({ total: 0, menunggu: 0, dipanggil: 0, selesai: 0 })
+const stats = ref({ total: 0, menunggu: 0, ditolak: 0, selesai: 0 })
 const kuotaAktif = ref(null)
 const kuotaLoading = ref(false)
 const loading = ref(false)
@@ -280,6 +346,9 @@ const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 
 
 const showCreateKuota = ref(false)
 const showEditKuota = ref(false)
+const showTolakItem = ref(null)
+const alasanTolak = ref('')
+const alasanLainnya = ref('')
 
 const form = ref({
   bulan: new Date().getMonth() + 1,
@@ -302,7 +371,7 @@ const sisaKuota = computed(() => {
 
 const statusClass = (status) => ({
   'menunggu': 'bg-yellow-100 text-yellow-700',
-  'dipanggil': 'bg-blue-100 text-blue-700',
+  'ditolak': 'bg-red-100 text-red-700',
   'selesai': 'bg-green-100 text-green-700',
   'batal': 'bg-gray-100 text-gray-500'
 }[status])
@@ -312,6 +381,26 @@ const formatTime = (timestamp) => {
     hour: '2-digit', 
     minute: '2-digit' 
   })
+}
+
+// ⭐ Download QR Code
+const downloadQR = async (item) => {
+  try {
+    const qrData = JSON.stringify({
+      nomor: item.nomor_antrian,
+      kuota_id: item.kuota_id
+    })
+    
+    const canvas = document.createElement('canvas')
+    await QRCode.toCanvas(canvas, qrData, { width: 400, margin: 2 })
+    
+    const link = document.createElement('a')
+    link.download = `QR-Antrian-${item.nomor_antrian.toString().padStart(3, '0')}.png`
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+  } catch (err) {
+    alert('Gagal generate QR: ' + err.message)
+  }
 }
 
 const fetchAntrian = async () => {
@@ -349,6 +438,34 @@ const updateStatus = async (id, status) => {
     await fetchAntrian()
   } catch (err) {
     alert('Gagal update status: ' + err.message)
+  }
+}
+
+const showTolakModal = (item) => {
+  showTolakItem.value = item
+  alasanTolak.value = ''
+  alasanLainnya.value = ''
+}
+
+const closeTolakModal = () => {
+  showTolakItem.value = null
+  alasanTolak.value = ''
+  alasanLainnya.value = ''
+}
+
+const submitTolak = async () => {
+  if (!showTolakItem.value) return
+  
+  const alasan = alasanTolak.value === 'Lainnya' 
+    ? alasanLainnya.value 
+    : alasanTolak.value
+  
+  try {
+    await updateStatusAntrian(showTolakItem.value.id, 'ditolak', alasan)
+    closeTolakModal()
+    await fetchAntrian()
+  } catch (err) {
+    alert('Gagal menolak: ' + err.message)
   }
 }
 

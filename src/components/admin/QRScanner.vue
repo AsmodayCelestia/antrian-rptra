@@ -64,8 +64,8 @@
       <div 
         :class="{
           'bg-yellow-500': scannedData.status === 'menunggu',
-          'bg-blue-500': scannedData.status === 'dipanggil',
           'bg-green-500': scannedData.status === 'selesai',
+          'bg-red-500': scannedData.status === 'ditolak',
           'bg-gray-500': scannedData.status === 'batal'
         }" 
         class="text-white p-4 text-center"
@@ -111,19 +111,33 @@
           </div>
         </div>
 
+        <!-- Alasan Ditolak (kalo status ditolak) -->
+        <div v-if="scannedData.status === 'ditolak'" class="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p class="text-red-700 font-semibold mb-1">❌ Ditolak</p>
+          <p class="text-red-600 text-sm">{{ scannedData.alasan_ditolak || 'Tidak ada keterangan' }}</p>
+        </div>
+
         <!-- Action Buttons -->
         <div class="pt-4 border-t space-y-3">
-          <!-- Belum diambil -->
-          <template v-if="scannedData.status === 'menunggu' || scannedData.status === 'dipanggil'">
-            <button 
-              @click="verifikasiPengambilan"
-              :disabled="verifying"
-              class="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white py-4 rounded-xl font-bold text-lg shadow-lg transform active:scale-95 transition-all"
-            >
-              {{ verifying ? 'Memproses...' : '✓ VERIFIKASI PENGAMBILAN' }}
-            </button>
-            <p class="text-center text-sm text-gray-500">
-              Tekan tombol di atas setelah warga mengambil sembako
+          <!-- Belum diproses (menunggu) -->
+          <template v-if="scannedData.status === 'menunggu'">
+            <div class="grid grid-cols-2 gap-3">
+              <button 
+                @click="showTolakModal = true"
+                class="bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold shadow-lg transform active:scale-95 transition-all"
+              >
+                ❌ TOLAK
+              </button>
+              <button 
+                @click="verifikasiPengambilan"
+                :disabled="verifying"
+                class="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white py-3 rounded-xl font-bold shadow-lg transform active:scale-95 transition-all"
+              >
+                {{ verifying ? '...' : '✓ VERIFIKASI' }}
+              </button>
+            </div>
+            <p class="text-center text-xs text-gray-500">
+              Pilih "TOLAK" jika data tidak valid / warga tidak berhak
             </p>
           </template>
 
@@ -136,9 +150,15 @@
             </p>
           </div>
 
+          <!-- Sudah ditolak -->
+          <div v-else-if="scannedData.status === 'ditolak'" class="bg-red-50 border-2 border-red-200 rounded-xl p-4 text-center">
+            <div class="text-4xl mb-2">🚫</div>
+            <p class="font-bold text-red-800">Pendaftaran Ditolak</p>
+          </div>
+
           <!-- Batal -->
           <div v-else class="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 text-center text-gray-500">
-            <div class="text-4xl mb-2">🚫</div>
+            <div class="text-4xl mb-2">⛔</div>
             <p class="font-bold">Antrian Dibatalkan</p>
           </div>
 
@@ -147,6 +167,53 @@
             class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-lg font-medium"
           >
             Scan Lainnya
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Tolak -->
+    <div v-if="showTolakModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+        <h3 class="text-xl font-bold text-red-600 mb-2">Tolak Pendaftaran</h3>
+        <p class="text-gray-600 text-sm mb-4">
+          Nomor Antrian #{{ scannedData?.nomor_antrian }} akan ditolak.
+        </p>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Alasan Penolakan <span class="text-red-500">*</span></label>
+          <select v-model="alasanTolak" class="w-full border rounded-lg px-3 py-2 bg-white">
+            <option value="" disabled>Pilih alasan</option>
+            <option value="Bukan warga Pademangan Timur">Bukan warga Pademangan Timur</option>
+            <option value="KK sudah pernah daftar">KK sudah pernah daftar</option>
+            <option value="Data KK tidak valid">Data KK tidak valid</option>
+            <option value="Kartu pemanfaat tidak valid">Kartu pemanfaat tidak valid</option>
+            <option value="Tidak membawa dokumen lengkap">Tidak membawa dokumen lengkap</option>
+            <option value="Nomor antrian hangus">Nomor antrian hangus (melewati waktu)</option>
+            <option value="Lainnya">Lainnya</option>
+          </select>
+          <textarea 
+            v-if="alasanTolak === 'Lainnya'"
+            v-model="alasanLainnya"
+            rows="2"
+            class="w-full border rounded-lg px-3 py-2 mt-2"
+            placeholder="Sebutkan alasan..."
+          ></textarea>
+        </div>
+
+        <div class="flex gap-3">
+          <button 
+            @click="showTolakModal = false"
+            class="flex-1 bg-gray-200 hover:bg-gray-300 py-2 rounded-lg"
+          >
+            Batal
+          </button>
+          <button 
+            @click="tolakPendaftaran"
+            :disabled="!alasanTolak || (alasanTolak === 'Lainnya' && !alasanLainnya)"
+            class="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white py-2 rounded-lg"
+          >
+            Ya, Tolak
           </button>
         </div>
       </div>
@@ -186,6 +253,11 @@ const manualNomor = ref('')
 const manualKuota = ref('')
 const kuotaOptions = ref([])
 
+// Modal Tolak
+const showTolakModal = ref(false)
+const alasanTolak = ref('')
+const alasanLainnya = ref('')
+
 const formatMonthYear = (bulan, tahun) => {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
   return `${months[bulan - 1]} ${tahun}`
@@ -217,7 +289,7 @@ const fetchAntrianData = async (nomor, kuota_id) => {
     if (supaError) throw supaError
     
     if (!data) {
-      error.value = 'Data antrian tidak ditemukan. Periksa nomor atau QR Code.'
+      error.value = 'Data antrian tidak ditemukan'
       return false
     }
     
@@ -255,7 +327,7 @@ const startScan = async () => {
         { facingMode: 'environment' },
         {
           fps: 10,
-          qrbox: { width: 250, height: 250 }
+          qrbox: { width: 200, height: 200 }
         },
         (decodedText) => {
           console.log('QR Code detected:', decodedText)
@@ -337,10 +409,34 @@ const verifikasiPengambilan = async () => {
   }
 }
 
+const tolakPendaftaran = async () => {
+  if (!scannedData.value) return
+  
+  const alasan = alasanTolak.value === 'Lainnya' 
+    ? alasanLainnya.value 
+    : alasanTolak.value
+  
+  verifying.value = true
+  
+  try {
+    await updateStatusAntrian(scannedData.value.id, 'ditolak', alasan)
+    showTolakModal.value = false
+    alasanTolak.value = ''
+    alasanLainnya.value = ''
+    await fetchAntrianData(scannedData.value.nomor_antrian, scannedData.value.kuota_id)
+  } catch (err) {
+    alert('Gagal menolak: ' + err.message)
+  } finally {
+    verifying.value = false
+  }
+}
+
 const resetScan = () => {
   scannedData.value = null
   error.value = null
   manualNomor.value = ''
+  alasanTolak.value = ''
+  alasanLainnya.value = ''
 }
 
 onMounted(async () => {
