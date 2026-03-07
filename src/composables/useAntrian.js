@@ -39,6 +39,19 @@ export const generateNomorAntrian = async (formData) => {
   return data
 }
 
+// ⭐ TAMBAHAN: Cek KK sudah terdaftar di kuota ini
+export const checkKKExists = async (nomor_kk, kuota_id) => {
+  const { data, error } = await supabase
+    .from('antrian')
+    .select('id, nomor_antrian, status')
+    .eq('nomor_kk', nomor_kk)
+    .eq('kuota_id', kuota_id)
+    .maybeSingle()
+  
+  if (error) throw error
+  return data // return data kalo ada, null kalo ga ada
+}
+
 export const getAllAntrian = async () => {
   let query = supabase
     .from('antrian')
