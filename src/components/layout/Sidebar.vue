@@ -12,7 +12,7 @@
       isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
     ]"
   >
-    <div class="p-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
+    <div class="p-4 border-b border-gray-100 bg-linear-to-r from-blue-50 to-white">
       <h2 class="font-bold text-gray-800 text-lg">Menu Navigasi</h2>
     </div>
     

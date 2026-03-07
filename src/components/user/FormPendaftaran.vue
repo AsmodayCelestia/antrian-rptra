@@ -368,7 +368,7 @@ const validators = {
     if (!val.trim()) return 'Alamat wajib diisi'
     if (val.length < 10) return 'Alamat terlalu pendek (min 10 karakter)'
     if (!validateAlamatPademangan(val)) {
-      return 'Alamat harus berada di jalan Pademangan atau Pesanggrahan'
+      return 'Alamat harus tidak sesuai ketentuann'
     }
     return ''
   },
