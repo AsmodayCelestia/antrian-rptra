@@ -132,10 +132,11 @@ export const updateStatusAntrian = async (id, status, alasan = null) => {
   return data
 }
 
+// ⭐ UPDATED: Include nomor_kk dan nomor_atm untuk search
 export const getAllAntrian = async () => {
   let query = supabase
     .from('antrian')
-    .select('*, rptra(nama), kuota_bulanan(bulan, tahun)')
+    .select('*, rptra(nama), kuota_bulanan(bulan, tahun), nomor_kk, nomor_atm')
     .order('created_at', { ascending: false })
   
   if (!canViewAllRptra()) {
@@ -224,9 +225,7 @@ export const validateQR = async (nomor, kuota_id) => {
     message: data.status === 'menunggu' ? 'Antrian valid - Menunggu verifikasi' : 'Antrian sedang diproses',
     data 
   }
-
 }
-
 
 // ⭐ FUNGSI BARU: Generate nomor untuk admin (bypass waktu, tetap cek kuota)
 export const generateNomorAntrianAdmin = async (formData) => {
