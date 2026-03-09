@@ -161,10 +161,14 @@
               </li>
               <li class="flex items-start gap-2">
                 <span class="text-blue-600 font-bold">17.</span>
-                <span>Wajib menjaga ketertiban dan kebersihan.</span>
+                <span class="text-red-600 font-semibold">Apabila melewati batas waktu Pengambilan Barang yang sudah ditentukan maka barang hangus.</span>
               </li>
               <li class="flex items-start gap-2">
                 <span class="text-blue-600 font-bold">18.</span>
+                <span>Wajib menjaga ketertiban dan kebersihan.</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-blue-600 font-bold">19.</span>
                 <span class="text-red-600 font-semibold">Tidak diperkenankan anak dibawah umur untuk melakukan antrian swipe kartu dan pada saat pengambilan barang komoditas.</span>
               </li>
             </ul>

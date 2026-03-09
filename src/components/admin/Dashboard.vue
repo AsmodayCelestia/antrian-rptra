@@ -116,7 +116,7 @@
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Waktu</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
+              <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
@@ -132,7 +132,7 @@
                   {{ item.status }}
                 </span>
               </td>
-              <!-- ⭐ Kolom Keterangan -->
+              <!-- Kolom Keterangan -->
               <td class="px-4 py-3 text-sm max-w-xs">
                 <div v-if="item.status === 'selesai'" class="text-green-600 font-medium">
                   ✓ Sudah ambil
@@ -149,14 +149,23 @@
                 {{ formatTime(item.created_at) }}
               </td>
               <td class="px-4 py-3">
-                <div class="flex gap-2 flex-wrap">
-                  <!-- ⭐ Download QR -->
+                <div class="flex gap-2 flex-wrap justify-center">
+                  <!-- ⭐ LIHAT DETAIL (ICON MATA) -->
+                  <button 
+                    @click="showDetail(item)"
+                    class="bg-blue-100 text-blue-600 hover:bg-blue-200 px-2 py-1 rounded text-xs"
+                    title="Lihat Detail"
+                  >
+                    👁️
+                  </button>
+                  
+                  <!-- Download QR -->
                   <button 
                     @click="downloadQR(item)"
-                    class="bg-blue-100 text-blue-600 hover:bg-blue-200 px-2 py-1 rounded text-xs"
+                    class="bg-gray-100 text-gray-600 hover:bg-gray-200 px-2 py-1 rounded text-xs"
                     title="Download QR"
                   >
-                    📥 QR
+                    📥
                   </button>
                   
                   <template v-if="item.status === 'menunggu'">
@@ -164,13 +173,13 @@
                       @click="updateStatus(item.id, 'selesai')"
                       class="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700"
                     >
-                      Verifikasi
+                      ✓
                     </button>
                     <button 
                       @click="showTolakModal(item)"
                       class="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700"
                     >
-                      Tolak
+                      ✕
                     </button>
                   </template>
                   
@@ -325,6 +334,153 @@
         </div>
       </div>
     </div>
+
+    <!-- ⭐ MODAL: DETAIL PENDAFTARAN (BARU) -->
+    <div v-if="detailItem" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <!-- Header -->
+        <div class="bg-blue-600 text-white p-4 rounded-t-xl flex justify-between items-center">
+          <div>
+            <h3 class="text-xl font-bold">Detail Pendaftaran</h3>
+            <p class="text-blue-100 text-sm">Nomor Antrian #{{ detailItem.nomor_antrian }}</p>
+          </div>
+          <button 
+            @click="closeDetail"
+            class="text-white hover:bg-blue-700 p-2 rounded-lg transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+
+        <!-- Content -->
+        <div class="p-6 space-y-6">
+          <!-- Status Badge -->
+          <div class="flex items-center gap-3">
+            <span :class="statusClass(detailItem.status)" class="px-3 py-1 rounded-full text-sm font-medium">
+              {{ detailItem.status.toUpperCase() }}
+            </span>
+            <span class="text-gray-500 text-sm">
+              Terdaftar: {{ formatTime(detailItem.created_at) }}
+            </span>
+          </div>
+
+          <!-- Grid Info -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Data Pribadi -->
+            <div class="bg-gray-50 rounded-lg p-4">
+              <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                👤 Data Pribadi
+              </h4>
+              <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                  <span class="text-gray-500">Nama:</span>
+                  <span class="font-medium">{{ detailItem.nama_pemilik_atm }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500">Email:</span>
+                  <span class="font-medium">{{ detailItem.email || '-' }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500">WhatsApp:</span>
+                  <span class="font-medium">{{ detailItem.whatsapp }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Kartu & Alamat -->
+            <div class="bg-gray-50 rounded-lg p-4">
+              <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                🏠 Alamat & Kartu
+              </h4>
+              <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                  <span class="text-gray-500">Kelurahan:</span>
+                  <span class="font-medium">{{ detailItem.kelurahan }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500">RT/RW:</span>
+                  <span class="font-medium">RT {{ detailItem.rt }} / RW {{ detailItem.rw }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500">Kartu:</span>
+                  <span class="font-medium">{{ detailItem.kartu_pemanfaat }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Alamat Lengkap -->
+            <div class="bg-gray-50 rounded-lg p-4 md:col-span-2">
+              <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                📍 Alamat Lengkap
+              </h4>
+              <p class="text-sm">{{ detailItem.alamat }}</p>
+            </div>
+
+            <!-- Nomor Kartu -->
+            <div class="bg-gray-50 rounded-lg p-4">
+              <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                🪪 Nomor Kartu
+              </h4>
+              <div class="space-y-2 text-sm">
+                <div>
+                  <span class="text-gray-500 block text-xs">Nomor KK:</span>
+                  <span class="font-medium font-mono text-lg tracking-wider">{{ detailItem.nomor_kk }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-500 block text-xs">Nomor ATM:</span>
+                  <span class="font-medium font-mono text-lg tracking-wider">{{ detailItem.nomor_atm }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Info Tambahan -->
+            <div class="bg-gray-50 rounded-lg p-4">
+              <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                ℹ️ Info Tambahan
+              </h4>
+              <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                  <span class="text-gray-500">RPTRA:</span>
+                  <span class="font-medium">{{ detailItem.rptra?.nama || '-' }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500">Periode:</span>
+                  <span class="font-medium">{{ formatMonthYearFromItem(detailItem) }}</span>
+                </div>
+                <div v-if="detailItem.alasan_ditolak" class="mt-2 p-2 bg-red-100 rounded text-red-700 text-xs">
+                  <span class="font-semibold">Alasan Ditolak:</span><br>
+                  {{ detailItem.alasan_ditolak }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-3 pt-4 border-t">
+            <button 
+              @click="downloadQR(detailItem)"
+              class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2"
+            >
+              📥 Download QR
+            </button>
+            <button 
+              v-if="detailItem.status === 'menunggu'"
+              @click="updateStatus(detailItem.id, 'selesai'); closeDetail()"
+              class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium"
+            >
+              ✓ Verifikasi
+            </button>
+            <button 
+              v-if="detailItem.status === 'menunggu'"
+              @click="showTolakModal(detailItem); closeDetail()"
+              class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium"
+            >
+              ✕ Tolak
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -349,6 +505,9 @@ const showEditKuota = ref(false)
 const showTolakItem = ref(null)
 const alasanTolak = ref('')
 const alasanLainnya = ref('')
+
+// ⭐ STATE BARU: Detail Modal
+const detailItem = ref(null)
 
 const form = ref({
   bulan: new Date().getMonth() + 1,
@@ -383,7 +542,24 @@ const formatTime = (timestamp) => {
   })
 }
 
-// ⭐ Download QR Code
+// ⭐ FUNGSI BARU: Format bulan tahun dari item
+const formatMonthYearFromItem = (item) => {
+  if (!item.kuota_bulanan) return '-'
+  const b = item.kuota_bulanan.bulan
+  const t = item.kuota_bulanan.tahun
+  return `${months[b - 1]} ${t}`
+}
+
+// ⭐ FUNGSI BARU: Show Detail
+const showDetail = (item) => {
+  detailItem.value = { ...item }
+}
+
+// ⭐ FUNGSI BARU: Close Detail
+const closeDetail = () => {
+  detailItem.value = null
+}
+
 const downloadQR = async (item) => {
   try {
     const qrData = JSON.stringify({
