@@ -1,6 +1,5 @@
 <template>
   <div class="p-6">
-    <!-- Header -->
     <div class="flex justify-between items-center mb-6">
       <div>
         <h1 class="text-2xl font-bold text-gray-800">Manajemen Kuota Bulanan</h1>
@@ -14,13 +13,11 @@
       </button>
     </div>
 
-    <!-- Loading -->
     <div v-if="loading" class="text-center py-12">
       <div class="animate-spin text-4xl mb-4">⏳</div>
       <p>Memuat data...</p>
     </div>
 
-    <!-- Table List -->
     <div v-else class="bg-white rounded-xl shadow-lg overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full">
@@ -31,12 +28,12 @@
               <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Terdaftar</th>
               <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Sisa</th>
               <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+              <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Jadwal (WIB)</th>
               <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">QR Code</th>
               <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
-            <!-- Data Rows -->
             <tr v-for="item in kuotaList" :key="item.id" class="hover:bg-gray-50">
               <td class="px-4 py-3">
                 <div class="font-medium">{{ formatMonthYear(item.bulan, item.tahun) }}</div>
@@ -61,6 +58,14 @@
                 >
                   {{ item.dibuka ? '🔓 Dibuka' : '🔒 Ditutup' }}
                 </button>
+              </td>
+              <td class="px-4 py-3 text-center text-xs">
+                <div v-if="item.target_open_time && item.target_close_time">
+                  <div class="text-gray-600">{{ formatWIB(item.target_open_time) }}</div>
+                  <div class="text-gray-400">s/d</div>
+                  <div class="text-gray-600">{{ formatWIB(item.target_close_time) }}</div>
+                </div>
+                <div v-else class="text-gray-400">Manual</div>
               </td>
               <td class="px-4 py-3 text-center">
                 <div class="flex flex-col items-center gap-2">
@@ -110,9 +115,8 @@
               </td>
             </tr>
             
-            <!-- Empty State -->
             <tr v-if="!kuotaList || kuotaList.length === 0">
-              <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+              <td colspan="8" class="px-4 py-8 text-center text-gray-500">
                 <div class="text-4xl mb-2">📭</div>
                 <p>Belum ada kuota. Klik "Buat Kuota Baru" untuk mulai.</p>
               </td>
@@ -124,7 +128,7 @@
 
     <!-- Modal: Create Kuota -->
     <div v-if="showCreateModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+      <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <h3 class="text-xl font-bold mb-4">Buat Kuota Baru</h3>
         
         <div class="space-y-4">
@@ -161,6 +165,33 @@
             >
           </div>
 
+          <div class="border-t pt-4">
+            <h4 class="font-medium text-gray-800 mb-3">⏰ Jadwal Otomatis (Opsional)</h4>
+            <p class="text-xs text-gray-500 mb-3">
+              Kosongkan untuk kontrol manual. Isi untuk auto open/close.
+            </p>
+            
+            <div class="space-y-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Buka Pendaftaran (WIB)</label>
+                <input 
+                  v-model="form.target_open_time" 
+                  type="datetime-local"
+                  class="w-full border rounded-lg px-3 py-2"
+                >
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Tutup Pendaftaran (WIB)</label>
+                <input 
+                  v-model="form.target_close_time" 
+                  type="datetime-local"
+                  class="w-full border rounded-lg px-3 py-2"
+                >
+              </div>
+            </div>
+          </div>
+
           <div class="flex items-center gap-2">
             <input 
               v-model="form.dibuka" 
@@ -169,9 +200,13 @@
               class="w-4 h-4 text-blue-600 rounded"
             >
             <label for="bukaPendaftaran" class="text-sm text-gray-700">
-              Buka pendaftaran langsung
+              Buka pendaftaran sekarang (manual)
             </label>
           </div>
+          
+          <p v-if="form.target_open_time && !form.dibuka" class="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+            ℹ️ Pendaftaran akan otomatis terbuka sesuai jadwal WIB
+          </p>
         </div>
 
         <div class="flex gap-3 mt-6">
@@ -194,7 +229,7 @@
 
     <!-- Modal: Edit Kuota -->
     <div v-if="showEditModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+      <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <h3 class="text-xl font-bold mb-2">Edit Kuota</h3>
         <p class="text-sm text-gray-500 mb-4">{{ formatMonthYear(editingItem.bulan, editingItem.tahun) }}</p>
         
@@ -210,6 +245,30 @@
             <p class="text-xs text-gray-500 mt-1" v-if="editingItem.terdaftar > 0">
               Minimal {{ editingItem.terdaftar }} (sudah terdaftar)
             </p>
+          </div>
+
+          <div class="border-t pt-4">
+            <h4 class="font-medium text-gray-800 mb-3">⏰ Jadwal Otomatis</h4>
+            
+            <div class="space-y-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Buka Pendaftaran (WIB)</label>
+                <input 
+                  v-model="editForm.target_open_time" 
+                  type="datetime-local"
+                  class="w-full border rounded-lg px-3 py-2"
+                >
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Tutup Pendaftaran (WIB)</label>
+                <input 
+                  v-model="editForm.target_close_time" 
+                  type="datetime-local"
+                  class="w-full border rounded-lg px-3 py-2"
+                >
+              </div>
+            </div>
           </div>
 
           <div class="flex items-center gap-2">
@@ -290,29 +349,34 @@ import {
   updateKuota, 
   deleteKuota,
   toggleKuotaStatus,
-  checkKuotaExists 
+  checkKuotaExists,
+  toDateTimeLocal,
+  fromDateTimeLocal
 } from '../../composables/useKuota'
+import { formatWIB } from '../../lib/supabase' // ⭐ Import langsung dari supabase.js
 
 const kuotaList = ref([])
 const loading = ref(false)
 
-// Modals
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const showDeleteModal = ref(false)
 const checkingExists = ref(false)
 
-// Forms
 const form = ref({
   bulan: new Date().getMonth() + 1,
   tahun: new Date().getFullYear(),
   kuota: 100,
-  dibuka: false
+  dibuka: false,
+  target_open_time: '',
+  target_close_time: ''
 })
 
 const editForm = ref({
   kuota: 100,
-  dibuka: false
+  dibuka: false,
+  target_open_time: '',
+  target_close_time: ''
 })
 
 const editingItem = ref(null)
@@ -345,17 +409,9 @@ const getSisaClass = (item) => {
 
 const fetchKuotaList = async () => {
   loading.value = true
-  console.log('Fetching kuota for rptra_id:', user.value?.rptra_id)
-  
   try {
     const result = await getAllKuota(user.value?.rptra_id)
-    console.log('Fetched result:', result)
-    
-    kuotaList.value = result && result.length > 0 ? [...result] : []
-    
-    console.log('kuotaList set to:', kuotaList.value)
-    console.log('kuotaList length:', kuotaList.value.length)
-    
+    kuotaList.value = result || []
   } catch (err) {
     console.error('Error fetching kuota:', err)
     alert('Gagal memuat data kuota: ' + err.message)
@@ -366,11 +422,14 @@ const fetchKuotaList = async () => {
 }
 
 const openCreateModal = () => {
+  const now = new Date()
   form.value = {
-    bulan: new Date().getMonth() + 1,
-    tahun: new Date().getFullYear(),
+    bulan: now.getMonth() + 1,
+    tahun: now.getFullYear(),
     kuota: 100,
-    dibuka: false
+    dibuka: false,
+    target_open_time: '',
+    target_close_time: ''
   }
   showCreateModal.value = true
 }
@@ -388,10 +447,14 @@ const submitCreate = async () => {
       return
     }
 
-    const newKuota = await createKuota({
+    const kuotaData = {
       ...form.value,
-      rptra_id: user.value.rptra_id
-    })
+      rptra_id: user.value.rptra_id,
+      target_open_time: form.value.target_open_time ? fromDateTimeLocal(form.value.target_open_time) : null,
+      target_close_time: form.value.target_close_time ? fromDateTimeLocal(form.value.target_close_time) : null
+    }
+
+    const newKuota = await createKuota(kuotaData)
 
     const qrUrl = `${window.location.origin}/daftar/${newKuota.id}`
     const qrCanvas = document.createElement('canvas')
@@ -420,7 +483,9 @@ const editKuota = (item) => {
   editingItem.value = { ...item }
   editForm.value = {
     kuota: item.kuota,
-    dibuka: item.dibuka
+    dibuka: item.dibuka,
+    target_open_time: toDateTimeLocal(item.target_open_time),
+    target_close_time: toDateTimeLocal(item.target_close_time)
   }
   showEditModal.value = true
 }
@@ -432,10 +497,14 @@ const closeEditModal = () => {
 
 const submitEdit = async () => {
   try {
-    await updateKuota(editingItem.value.id, {
+    const updateData = {
       kuota: editForm.value.kuota,
-      dibuka: editForm.value.dibuka
-    })
+      dibuka: editForm.value.dibuka,
+      target_open_time: editForm.value.target_open_time ? fromDateTimeLocal(editForm.value.target_open_time) : null,
+      target_close_time: editForm.value.target_close_time ? fromDateTimeLocal(editForm.value.target_close_time) : null
+    }
+
+    await updateKuota(editingItem.value.id, updateData)
 
     closeEditModal()
     await fetchKuotaList()
@@ -495,7 +564,6 @@ const copyLink = (item) => {
 }
 
 onMounted(() => {
-  console.log('KuotaManager mounted')
   fetchKuotaList()
 })
 </script>

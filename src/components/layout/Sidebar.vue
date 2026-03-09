@@ -12,13 +12,17 @@
       isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
     ]"
   >
-    <div class="p-4 border-b border-gray-100 bg-linear-to-r from-blue-50 to-white">
+    <div class="p-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
       <h2 class="font-bold text-gray-800 text-lg">Menu Navigasi</h2>
+      <!-- ⭐ DEBUG: Tampilkan role untuk cek -->
+      <p v-if="userRole" class="text-xs text-gray-500 mt-1">
+        Role: {{ userRole }}
+      </p>
     </div>
     
     <nav class="p-3 space-y-1 flex-1">
-      <!-- Admin Menu -->
-      <template v-if="isAdmin">
+      <!-- ⭐ FIX: Cek dengan computed yang reaktif -->
+      <template v-if="isAdminOrModerator">
         <router-link 
           to="/admin/dashboard" 
           class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 text-gray-700 transition-all"
@@ -29,6 +33,7 @@
         </router-link>
         
         <router-link 
+          v-if="userRole === 'admin'"
           to="/admin/kuota" 
           class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 text-gray-700 transition-all"
           active-class="bg-blue-100 text-blue-700 font-semibold"
@@ -67,9 +72,17 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   isOpen: Boolean,
-  isAdmin: Boolean
+  userRole: String
 })
+
 defineEmits(['close'])
+
+// ⭐ FIX: Computed untuk cek role dengan fallback
+const isAdminOrModerator = computed(() => {
+  return props.userRole === 'admin' || props.userRole === 'moderator'
+})
 </script>

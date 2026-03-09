@@ -45,10 +45,11 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { login, loading, error } from '../../composables/useAuth'
 
 const router = useRouter()
+const route = useRoute()
 const email = ref('admin@rptra.id')
 const password = ref('')
 
@@ -56,7 +57,9 @@ const handleLogin = async () => {
   const result = await login(email.value, password.value)
   
   if (result.success) {
-    router.push('/admin/dashboard')
+    // Langsung redirect, tidak perlu delay
+    const redirect = route.query.redirect || '/admin/dashboard'
+    router.push(redirect)
   }
 }
 </script>

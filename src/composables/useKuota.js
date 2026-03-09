@@ -1,7 +1,10 @@
-import { supabase } from '../lib/supabase'
+import { supabase, getJakartaTime, toDateTimeLocal, fromDateTimeLocal, isNowInRange } from '../lib/supabase'
 import { user, canViewAllRptra } from './useAuth'
 
-// GET all kuota with count - FIX: tanpa .group()
+// Re-export untuk kemudahan
+export { toDateTimeLocal, fromDateTimeLocal }
+
+// GET all kuota with count
 export const getAllKuota = async (rptraId = null) => {
   let query = supabase
     .from('kuota_bulanan')
@@ -16,29 +19,23 @@ export const getAllKuota = async (rptraId = null) => {
   const { data: kuotas, error } = await query
   if (error) throw error
 
-  if (!kuotas || kuotas.length === 0) {
-    return []
-  }
+  if (!kuotas || kuotas.length === 0) return []
 
-  // ⭐ FIX: Count manual per kuota pakai Promise.all (tanpa .group())
   const kuotaWithCount = await Promise.all(
     kuotas.map(async (k) => {
-      const { count, error: countError } = await supabase
+      const { count } = await supabase
         .from('antrian')
         .select('*', { count: 'exact', head: true })
         .eq('kuota_id', k.id)
       
-      return {
-        ...k,
-        terdaftar: countError ? 0 : (count || 0)
-      }
+      return { ...k, terdaftar: count || 0 }
     })
   )
 
   return kuotaWithCount
 }
 
-// GET single kuota - FIX: handle 0 or 1 row
+// GET single kuota
 export const getKuotaById = async (id) => {
   const { data, error } = await supabase
     .from('kuota_bulanan')
@@ -48,6 +45,58 @@ export const getKuotaById = async (id) => {
 
   if (error) throw error
   return data
+}
+
+// CEK SCHEDULE DAN AUTO OPEN
+export const checkAndTriggerOpen = async (kuotaId) => {
+  const { data: kuota, error } = await supabase
+    .from('kuota_bulanan')
+    .select('*')
+    .eq('id', kuotaId)
+    .single()
+  
+  if (error || !kuota) throw new Error('Kuota tidak ditemukan')
+  
+  if (kuota.dibuka) return { opened: true, kuota }
+  
+  if (!kuota.target_open_time || !kuota.target_close_time) {
+    return { opened: false, kuota, reason: 'no_schedule' }
+  }
+  
+  // ⭐ FIX: Database simpan UTC tanpa Z, kita tambahkan Z untuk parse sebagai UTC
+  const openTimeStr = kuota.target_open_time.endsWith('Z') 
+    ? kuota.target_open_time 
+    : kuota.target_open_time + 'Z'
+  const closeTimeStr = kuota.target_close_time.endsWith('Z')
+    ? kuota.target_close_time
+    : kuota.target_close_time + 'Z'
+  
+  const now = Date.now()
+  const openTime = new Date(openTimeStr).getTime()
+  const closeTime = new Date(closeTimeStr).getTime()
+  
+  if (now >= openTime && now <= closeTime) {
+    const { data: updated, error: updateError } = await supabase
+      .from('kuota_bulanan')
+      .update({ dibuka: true })
+      .eq('id', kuotaId)
+      .select()
+      .single()
+    
+    if (updateError) throw updateError
+    
+    return { opened: true, kuota: updated, triggered: true }
+  }
+  
+  if (now < openTime) {
+    return { opened: false, kuota, reason: 'not_yet_open', openTime: kuota.target_open_time }
+  }
+  
+  if (now > closeTime) {
+    return { opened: false, kuota, reason: 'already_closed', closeTime: kuota.target_close_time }
+  }
+  
+  return { opened: false, kuota, reason: 'unknown' }
 }
 
 // CREATE kuota
@@ -75,27 +124,15 @@ export const updateKuota = async (id, updateData) => {
   return data
 }
 
-// DELETE kuota (with cascade)
+// DELETE kuota
 export const deleteKuota = async (id) => {
-  const { error: antrianError } = await supabase
-    .from('antrian')
-    .delete()
-    .eq('kuota_id', id)
-  
-  if (antrianError) {
-    console.error('Error deleting antrian:', antrianError)
-  }
-  
-  const { error } = await supabase
-    .from('kuota_bulanan')
-    .delete()
-    .eq('id', id)
-
+  await supabase.from('antrian').delete().eq('kuota_id', id)
+  const { error } = await supabase.from('kuota_bulanan').delete().eq('id', id)
   if (error) throw error
   return true
 }
 
-// TOGGLE status
+// TOGGLE status manual
 export const toggleKuotaStatus = async (id, currentStatus) => {
   return updateKuota(id, { dibuka: !currentStatus })
 }

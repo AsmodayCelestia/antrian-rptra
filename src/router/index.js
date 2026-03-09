@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { checkSession } from '../composables/useAuth'
+import { checkSession, user } from '../composables/useAuth'
 
 const routes = [
   {
@@ -17,7 +17,6 @@ const routes = [
       }
     ]
   },
-  // ⭐ PINDAH KE SINI - route publik untuk QR scan
   {
     path: '/daftar/:kuotaId',
     name: 'DaftarKuota',
@@ -26,6 +25,7 @@ const routes = [
   },
   {
     path: '/login',
+    name: 'Login',
     component: () => import('../components/admin/LoginForm.vue'),
     meta: { guestOnly: true }
   },
@@ -36,27 +36,29 @@ const routes = [
     children: [
       {
         path: '',
-        redirect: '/admin/dashboard'
+        redirect: { name: 'Dashboard' }
       },
-      // ⭐ HAPUS DARI SINI
-      // {
-      //   path: 'daftar/:kuotaId',
-      //   name: 'DaftarKuota',
-      //   component: () => import('../pages/DaftarPage.vue')
-      // },
       {
         path: 'dashboard',
+        name: 'Dashboard',
         component: () => import('../components/admin/Dashboard.vue')
       },
       {
         path: 'kuota',
-        component: () => import('../components/admin/KuotaManager.vue')
+        name: 'Kuota',
+        component: () => import('../components/admin/KuotaManager.vue'),
+        meta: { adminOnly: true }
       },
       {
         path: 'scan',
+        name: 'Scan',
         component: () => import('../components/admin/QRScanner.vue')
       }
     ]
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/'
   }
 ]
 
@@ -65,15 +67,24 @@ const router = createRouter({
   routes
 })
 
+// ⭐ SIMPLIFIED: Cukup cek localStorage, tidak perlu async complex
 router.beforeEach((to, from, next) => {
   const isLoggedIn = checkSession()
+  const userRole = user.value?.role
   
-  if (to.meta.requiresAuth && !isLoggedIn) {
-    return next({ path: '/login', replace: true })
+  // Guest only routes (login)
+  if (to.meta.guestOnly && isLoggedIn) {
+    return next('/admin/dashboard')
   }
   
-  if (to.meta.guestOnly && isLoggedIn) {
-    return next({ path: '/admin/dashboard', replace: true })
+  // Auth required routes
+  if (to.meta.requiresAuth && !isLoggedIn) {
+    return next({ name: 'Login', query: { redirect: to.fullPath } })
+  }
+  
+  // Admin only routes
+  if (to.meta.adminOnly && userRole !== 'admin') {
+    return next('/admin/dashboard')
   }
   
   next()
