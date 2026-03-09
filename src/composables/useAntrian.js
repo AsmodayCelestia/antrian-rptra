@@ -224,4 +224,80 @@ export const validateQR = async (nomor, kuota_id) => {
     message: data.status === 'menunggu' ? 'Antrian valid - Menunggu verifikasi' : 'Antrian sedang diproses',
     data 
   }
+
+}
+
+
+// ⭐ FUNGSI BARU: Generate nomor untuk admin (bypass waktu, tetap cek kuota)
+export const generateNomorAntrianAdmin = async (formData) => {
+  const { kuota_id, rptra_id } = formData
+
+  const { data: kuota, error: kuotaError } = await supabase
+    .from('kuota_bulanan')
+    .select('*')
+    .eq('id', kuota_id)
+    .single()
+  
+  if (kuotaError || !kuota) throw new Error('Kuota tidak ditemukan')
+  
+  // ⭐ BYPASS WAKTU: Admin bisa daftar kapanpun, tapi tetap cek kuota
+  
+  // Cek apakah sudah penuh
+  const { count, error: countError } = await supabase
+    .from('antrian')
+    .select('*', { count: 'exact', head: true })
+    .eq('kuota_id', kuota_id)
+  
+  if (countError) throw countError
+  
+  const currentCount = count || 0
+  
+  if (currentCount >= kuota.kuota) {
+    throw new Error('Maaf, kuota sudah penuh. Silakan edit kuota terlebih dahulu.')
+  }
+
+  // Ambil nomor antrian terakhir
+  const { data: last } = await supabase
+    .from('antrian')
+    .select('nomor_antrian')
+    .eq('kuota_id', kuota_id)
+    .order('nomor_antrian', { ascending: false })
+    .limit(1)
+    .single()
+
+  const nextNomor = last ? last.nomor_antrian + 1 : 1
+
+  // Insert antrian
+  const { data, error } = await supabase
+    .from('antrian')
+    .insert({
+      nomor_antrian: nextNomor,
+      kuota_id,
+      rptra_id,
+      email: formData.email,
+      kelurahan: formData.kelurahan,
+      kartu_pemanfaat: formData.kartu_pemanfaat,
+      alamat: formData.alamat,
+      rt: formData.rt,
+      rw: formData.rw,
+      nomor_kk: formData.nomor_kk,
+      nomor_atm: formData.nomor_atm,
+      nama_pemilik_atm: formData.nama_pemilik_atm,
+      whatsapp: formData.whatsapp,
+      status: 'menunggu'
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+  
+  // Auto close kalau penuh
+  if (nextNomor >= kuota.kuota) {
+    await supabase
+      .from('kuota_bulanan')
+      .update({ dibuka: false })
+      .eq('id', kuota_id)
+  }
+  
+  return data
 }

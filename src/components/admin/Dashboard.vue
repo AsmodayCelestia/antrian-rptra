@@ -39,6 +39,22 @@
       </div>
     </div>
 
+    <!-- ⭐ TOMBOL BARU: Tambah Manual -->
+    <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border border-purple-200 p-4 mb-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="font-bold text-gray-800">Pendaftaran Manual</h3>
+          <p class="text-sm text-gray-600">Tambah pendaftar untuk warga yang membutuhkan bantuan</p>
+        </div>
+        <button 
+          @click="openPilihKuotaModal"
+          class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2"
+        >
+          <span>➕</span> Tambah Manual
+        </button>
+      </div>
+    </div>
+
     <!-- Kuota Control -->
     <div v-if="!isModerator" class="bg-white rounded-xl shadow-lg p-6 mb-6">
       <div class="flex justify-between items-center mb-4">
@@ -132,7 +148,6 @@
                   {{ item.status }}
                 </span>
               </td>
-              <!-- Kolom Keterangan -->
               <td class="px-4 py-3 text-sm max-w-xs">
                 <div v-if="item.status === 'selesai'" class="text-green-600 font-medium">
                   ✓ Sudah ambil
@@ -150,7 +165,6 @@
               </td>
               <td class="px-4 py-3">
                 <div class="flex gap-2 flex-wrap justify-center">
-                  <!-- ⭐ LIHAT DETAIL (ICON MATA) -->
                   <button 
                     @click="showDetail(item)"
                     class="bg-blue-100 text-blue-600 hover:bg-blue-200 px-2 py-1 rounded text-xs"
@@ -158,8 +172,6 @@
                   >
                     👁️
                   </button>
-                  
-                  <!-- Download QR -->
                   <button 
                     @click="downloadQR(item)"
                     class="bg-gray-100 text-gray-600 hover:bg-gray-200 px-2 py-1 rounded text-xs"
@@ -167,7 +179,6 @@
                   >
                     📥
                   </button>
-                  
                   <template v-if="item.status === 'menunggu'">
                     <button 
                       @click="updateStatus(item.id, 'selesai')"
@@ -182,7 +193,6 @@
                       ✕
                     </button>
                   </template>
-                  
                   <span v-else class="text-gray-400 text-xs">-</span>
                 </div>
               </td>
@@ -335,10 +345,106 @@
       </div>
     </div>
 
-    <!-- ⭐ MODAL: DETAIL PENDAFTARAN (BARU) -->
+    <!-- ⭐ MODAL BARU: Pilih Kuota untuk Pendaftaran Manual -->
+    <div v-if="showPilihKuota" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-md">
+        <div class="bg-purple-600 text-white p-4 rounded-t-xl flex justify-between items-center">
+          <h3 class="text-xl font-bold">Pilih Periode Pendaftaran</h3>
+          <button 
+            @click="closePilihKuota"
+            class="text-white hover:bg-purple-700 p-2 rounded-lg"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="p-6">
+          <p class="text-gray-600 text-sm mb-4">
+            Pilih kuota yang tersedia untuk didaftarkan manual:
+          </p>
+
+          <div v-if="loadingKuotaList" class="text-center py-8">
+            <div class="animate-spin text-2xl mb-2">⏳</div>
+            <p class="text-gray-500 text-sm">Memuat kuota...</p>
+          </div>
+
+          <div v-else-if="kuotaList.length === 0" class="text-center py-8 text-gray-500">
+            <div class="text-4xl mb-2">📭</div>
+            <p>Belum ada kuota tersedia</p>
+          </div>
+
+          <div v-else class="space-y-3 max-h-96 overflow-y-auto">
+            <div 
+              v-for="k in kuotaList" 
+              :key="k.id"
+              @click="pilihKuota(k)"
+              class="border-2 rounded-lg p-4 cursor-pointer transition-all hover:border-purple-500 hover:bg-purple-50"
+              :class="selectedKuota?.id === k.id ? 'border-purple-500 bg-purple-50' : 'border-gray-200'"
+            >
+              <div class="flex justify-between items-start">
+                <div>
+                  <h4 class="font-bold text-gray-800">{{ formatMonthYear(k.bulan, k.tahun) }}</h4>
+                  <p class="text-sm text-gray-500">{{ k.rptra?.nama }}</p>
+                </div>
+                <span 
+                  class="px-2 py-1 rounded text-xs font-medium"
+                  :class="k.dibuka ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'"
+                >
+                  {{ k.dibuka ? 'Dibuka' : 'Ditutup' }}
+                </span>
+              </div>
+              
+              <div class="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
+                <div class="bg-gray-100 rounded p-2">
+                  <p class="text-gray-500 text-xs">Kuota</p>
+                  <p class="font-bold">{{ k.kuota }}</p>
+                </div>
+                <div class="bg-blue-50 rounded p-2">
+                  <p class="text-gray-500 text-xs">Terdaftar</p>
+                  <p class="font-bold text-blue-600">{{ k.terdaftar || 0 }}</p>
+                </div>
+                <div 
+                  class="rounded p-2"
+                  :class="(k.kuota - (k.terdaftar || 0)) <= 0 ? 'bg-red-100' : 'bg-green-100'"
+                >
+                  <p class="text-gray-500 text-xs">Sisa</p>
+                  <p 
+                    class="font-bold"
+                    :class="(k.kuota - (k.terdaftar || 0)) <= 0 ? 'text-red-600' : 'text-green-600'"
+                  >
+                    {{ k.kuota - (k.terdaftar || 0) }}
+                  </p>
+                </div>
+              </div>
+
+              <p v-if="(k.kuota - (k.terdaftar || 0)) <= 0" class="mt-2 text-xs text-red-600 text-center">
+                ⚠️ Kuota penuh - perlu edit kuota terlebih dahulu
+              </p>
+            </div>
+          </div>
+
+          <div class="flex gap-3 mt-6">
+            <button 
+              @click="closePilihKuota"
+              class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 rounded-lg"
+            >
+              Batal
+            </button>
+            <button 
+              @click="lanjutKeForm"
+              :disabled="!selectedKuota || (selectedKuota.kuota - (selectedKuota.terdaftar || 0)) <= 0"
+              class="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 text-white py-2 rounded-lg font-medium"
+            >
+              Lanjutkan
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Detail Pendaftaran -->
     <div v-if="detailItem" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <!-- Header -->
         <div class="bg-blue-600 text-white p-4 rounded-t-xl flex justify-between items-center">
           <div>
             <h3 class="text-xl font-bold">Detail Pendaftaran</h3>
@@ -352,9 +458,7 @@
           </button>
         </div>
 
-        <!-- Content -->
         <div class="p-6 space-y-6">
-          <!-- Status Badge -->
           <div class="flex items-center gap-3">
             <span :class="statusClass(detailItem.status)" class="px-3 py-1 rounded-full text-sm font-medium">
               {{ detailItem.status.toUpperCase() }}
@@ -364,9 +468,7 @@
             </span>
           </div>
 
-          <!-- Grid Info -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Data Pribadi -->
             <div class="bg-gray-50 rounded-lg p-4">
               <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
                 👤 Data Pribadi
@@ -387,7 +489,6 @@
               </div>
             </div>
 
-            <!-- Kartu & Alamat -->
             <div class="bg-gray-50 rounded-lg p-4">
               <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
                 🏠 Alamat & Kartu
@@ -408,7 +509,6 @@
               </div>
             </div>
 
-            <!-- Alamat Lengkap -->
             <div class="bg-gray-50 rounded-lg p-4 md:col-span-2">
               <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
                 📍 Alamat Lengkap
@@ -416,7 +516,6 @@
               <p class="text-sm">{{ detailItem.alamat }}</p>
             </div>
 
-            <!-- Nomor Kartu -->
             <div class="bg-gray-50 rounded-lg p-4">
               <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
                 🪪 Nomor Kartu
@@ -433,7 +532,6 @@
               </div>
             </div>
 
-            <!-- Info Tambahan -->
             <div class="bg-gray-50 rounded-lg p-4">
               <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
                 ℹ️ Info Tambahan
@@ -455,7 +553,6 @@
             </div>
           </div>
 
-          <!-- Actions -->
           <div class="flex gap-3 pt-4 border-t">
             <button 
               @click="downloadQR(detailItem)"
@@ -486,11 +583,14 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { user, isModerator } from '../../composables/useAuth'
 import { getAllAntrian, getStats, updateStatusAntrian, getKuotaAktif } from '../../composables/useAntrian'
-import { createKuota, updateKuota, toggleKuotaStatus, checkKuotaExists } from '../../composables/useKuota'
+import { createKuota, updateKuota, toggleKuotaStatus, checkKuotaExists, getAllKuota } from '../../composables/useKuota'
 import { supabase } from '../../lib/supabase'
 import QRCode from 'qrcode'
+
+const router = useRouter()
 
 const antrianList = ref([])
 const stats = ref({ total: 0, menunggu: 0, ditolak: 0, selesai: 0 })
@@ -506,7 +606,12 @@ const showTolakItem = ref(null)
 const alasanTolak = ref('')
 const alasanLainnya = ref('')
 
-// ⭐ STATE BARU: Detail Modal
+// ⭐ STATE BARU: Pilih Kuota Modal
+const showPilihKuota = ref(false)
+const kuotaList = ref([])
+const loadingKuotaList = ref(false)
+const selectedKuota = ref(null)
+
 const detailItem = ref(null)
 
 const form = ref({
@@ -542,7 +647,10 @@ const formatTime = (timestamp) => {
   })
 }
 
-// ⭐ FUNGSI BARU: Format bulan tahun dari item
+const formatMonthYear = (bulan, tahun) => {
+  return `${months[bulan - 1]} ${tahun}`
+}
+
 const formatMonthYearFromItem = (item) => {
   if (!item.kuota_bulanan) return '-'
   const b = item.kuota_bulanan.bulan
@@ -550,12 +658,50 @@ const formatMonthYearFromItem = (item) => {
   return `${months[b - 1]} ${t}`
 }
 
-// ⭐ FUNGSI BARU: Show Detail
+// ⭐ FUNGSI BARU: Buka Modal Pilih Kuota
+const openPilihKuotaModal = async () => {
+  showPilihKuota.value = true
+  loadingKuotaList.value = true
+  selectedKuota.value = null
+  
+  try {
+    const result = await getAllKuota(user.value?.rptra_id)
+    // Sort: yang ada sisa dulu, then by date desc
+    kuotaList.value = (result || []).sort((a, b) => {
+      const sisaA = a.kuota - (a.terdaftar || 0)
+      const sisiB = b.kuota - (b.terdaftar || 0)
+      if (sisaA > 0 && sisiB <= 0) return -1
+      if (sisaA <= 0 && sisiB > 0) return 1
+      return new Date(b.created_at) - new Date(a.created_at)
+    })
+  } catch (err) {
+    console.error('Error loading kuota:', err)
+    alert('Gagal memuat daftar kuota')
+  } finally {
+    loadingKuotaList.value = false
+  }
+}
+
+const closePilihKuota = () => {
+  showPilihKuota.value = false
+  selectedKuota.value = null
+}
+
+const pilihKuota = (k) => {
+  selectedKuota.value = k
+}
+
+const lanjutKeForm = () => {
+  if (!selectedKuota.value) return
+  
+  // Redirect ke halaman form manual
+  router.push(`/admin/didaftarkanmanualbyadmin/${selectedKuota.value.id}`)
+}
+
 const showDetail = (item) => {
   detailItem.value = { ...item }
 }
 
-// ⭐ FUNGSI BARU: Close Detail
 const closeDetail = () => {
   detailItem.value = null
 }

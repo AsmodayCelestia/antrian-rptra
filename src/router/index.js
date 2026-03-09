@@ -57,6 +57,13 @@ const routes = [
     ]
   },
   {
+  path: '/admin/didaftarkanmanualbyadmin/:kuotaId',
+  name: 'AdminFormManual',
+  component: () => import('../pages/AdminFormManual.vue'),
+  meta: { requiresAuth: true },
+  props: true
+},
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/'
   }
