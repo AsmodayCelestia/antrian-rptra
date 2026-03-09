@@ -107,7 +107,7 @@
           </div>
         </div>
 
-        <!-- Reset & Print -->
+        <!-- Reset & Export Excel -->
         <div class="flex gap-2">
           <button 
             @click="resetFilters"
@@ -116,10 +116,10 @@
             Reset
           </button>
           <button 
-            @click="printTable"
-            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+            @click="downloadExcel"
+            class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
           >
-            <span>🖨️</span> Print
+            <span>📊</span> Export Excel
           </button>
         </div>
       </div>
@@ -466,6 +466,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import * as XLSX from 'xlsx'
 import { user, isModerator } from '../../composables/useAuth'
 import { getAllAntrian, updateStatusAntrian, getKuotaAktif } from '../../composables/useAntrian'
 import { getAllKuota } from '../../composables/useKuota'
@@ -576,173 +577,229 @@ const showTolakItem = ref(null)
 const alasanTolak = ref('')
 const alasanLainnya = ref('')
 
-// Print - CARA 2: window.open()
-// const printTable = () => {
-//   // Generate HTML untuk print dengan informasi lengkap
-//   const printWindow = window.open('', '_blank', 'width=1400,height=800')
+// ⭐ EXPORT EXCEL DENGAN STYLING
+const downloadExcel = () => {
+  // Create workbook
+  const wb = XLSX.utils.book_new()
   
-//   const rowsHtml = filteredRows.value.map((item, index) => `
-//     <tr style="page-break-inside: avoid;">
-//       <td style="border:1px solid #000;padding:6px;text-align:center;vertical-align:top;">
-//         <strong>#${item.nomor_antrian?.toString().padStart(3, '0')}</strong>
-//       </td>
-//       <td style="border:1px solid #000;padding:6px;vertical-align:top;">
-//         <div style="font-weight:bold;font-size:11px;">${item.nama_pemilik_atm}</div>
-//         <div style="font-size:9px;color:#666;">WA: ${item.whatsapp}</div>
-//         <div style="font-size:9px;color:#666;">Email: ${item.email || '-'}</div>
-//       </td>
-//       <td style="border:1px solid #000;padding:6px;vertical-align:top;">
-//         <div style="font-size:10px;">${item.kartu_pemanfaat}</div>
-//       </td>
-//       <td style="border:1px solid #000;padding:6px;vertical-align:top;font-family:monospace;font-size:10px;">
-//         <div><strong>KK:</strong> ${item.nomor_kk}</div>
-//         <div style="margin-top:2px;"><strong>ATM:</strong> ${item.nomor_atm}</div>
-//       </td>
-//       <td style="border:1px solid #000;padding:6px;vertical-align:top;font-size:9px;">
-//         <div style="font-weight:bold;">${item.kelurahan}</div>
-//         <div>RT ${item.rt} / RW ${item.rw}</div>
-//         <div style="margin-top:2px;color:#555;word-break:break-word;">${item.alamat}</div>
-//       </td>
-//       <td style="border:1px solid #000;padding:6px;text-align:center;vertical-align:top;">
-//         <span style="font-size:10px;font-weight:bold;text-transform:uppercase;
-//           ${item.status === 'selesai' ? 'color:#059669;' : ''}
-//           ${item.status === 'ditolak' ? 'color:#dc2626;' : ''}
-//           ${item.status === 'menunggu' ? 'color:#d97706;' : ''}
-//           ${item.status === 'batal' ? 'color:#6b7280;' : ''}
-//         ">
-//           ${item.status?.toUpperCase()}
-//         </span>
-//         ${item.status === 'ditolak' ? `<div style="font-size:8px;color:#dc2626;margin-top:2px;">${item.alasan_ditolak}</div>` : ''}
-//       </td>
-//       <td style="border:1px solid #000;padding:6px;font-size:9px;vertical-align:top;">
-//         ${formatTime(item.created_at)}
-//       </td>
-//     </tr>
-//   `).join('')
-
-//   const html = `
-//     <!DOCTYPE html>
-//     <html>
-//       <head>
-//         <title>Laporan Antrian Lengkap - ${months[filterBulan.value - 1]} ${filterTahun.value}</title>
-//         <style>
-//           @page { size: landscape; margin: 8mm; }
-//           body { font-family: Arial, sans-serif; font-size: 10px; margin: 15px; }
-//           h1 { text-align: center; margin-bottom: 5px; font-size: 16px; }
-//           .subtitle { text-align: center; color: #666; margin-bottom: 5px; font-size: 12px; }
-//           .meta { text-align: center; font-size: 9px; color: #999; margin-bottom: 15px; }
-//           table { width: 100%; border-collapse: collapse; }
-//           th { background-color: #f3f4f6; font-weight: bold; text-align: center; font-size: 9px; padding: 6px; }
-//           tr:nth-child(even) { background-color: #f9fafb; }
-//           .total { text-align: right; margin-top: 10px; font-size: 10px; color: #666; font-weight: bold; }
-//           .rptra-info { text-align: center; font-size: 11px; color: #444; margin-bottom: 10px; }
-//         </style>
-//       </head>
-//       <body onload="window.print(); setTimeout(() => window.close(), 500);">
-//         <h1>LAPORAN ANTRIAN RPTRA - DATA LENGKAP</h1>
-//         <div class="subtitle">
-//           Periode: ${months[filterBulan.value - 1]} ${filterTahun.value}
-//           ${filterKartu.value ? ` | Filter Kartu: ${filterKartu.value}` : ''}
-//           ${searchKKATM.value ? ` | Pencarian: ${searchKKATM.value}` : ''}
-//         </div>
-//         <div class="rptra-info">
-//           ${!isModerator.value && user.value?.rptra ? `RPTRA: ${user.value.rptra.nama}` : 'Semua RPTRA (Moderator)'}
-//         </div>
-//         <div class="meta">Dicetak: ${new Date().toLocaleString('id-ID')} | Total Data: ${filteredRows.value.length}</div>
-        
-//         <table>
-//           <thead>
-//             <tr>
-//               <th style="border:1px solid #000;width:60px;">No Antrian</th>
-//               <th style="border:1px solid #000;width:150px;">Data Pribadi</th>
-//               <th style="border:1px solid #000;width:120px;">Kartu Pemanfaat</th>
-//               <th style="border:1px solid #000;width:140px;">Nomor Kartu<br>(KK / ATM)</th>
-//               <th style="border:1px solid #000;width:200px;">Alamat Lengkap<br>(Kelurahan, RT/RW)</th>
-//               <th style="border:1px solid #000;width:80px;">Status</th>
-//               <th style="border:1px solid #000;width:100px;">Waktu Daftar</th>
-//             </tr>
-//           </thead>
-//           <tbody>
-//             ${rowsHtml}
-//           </tbody>
-//         </table>
-        
-//         <div class="total">
-//           Total Data: ${filteredRows.value.length} | 
-//           Menunggu: ${filteredRows.value.filter(d => d.status === 'menunggu').length} | 
-//           Selesai: ${filteredRows.value.filter(d => d.status === 'selesai').length} | 
-//           Ditolak: ${filteredRows.value.filter(d => d.status === 'ditolak').length}
-//         </div>
-//       </body>
-//     </html>
-//   `
+  // ==================== SHEET 1: DATA LENGKAP ====================
   
-//   printWindow.document.write(html)
-//   printWindow.document.close()
-// }
-
-const printTable = () => {
-  // Header
-  const headers = [
-    'No Antrian',
-    'Nama Pemilik ATM',
-    'Email',
-    'WhatsApp',
-    'Nomor KK',
-    'Nomor ATM',
-    'Kelurahan',
-    'RT',
-    'RW',
-    'Alamat Lengkap',
-    'Kartu Pemanfaat',
-    'Status',
-    'Alasan Ditolak',
-    'Waktu Daftar',
-    'RPTRA'
+  // Header info rows
+  const headerRows = [
+    ['LAPORAN ANTRIAN RPTRA - DATA LENGKAP'],
+    [''],
+    [`Periode: ${months[filterBulan.value - 1]} ${filterTahun.value}`],
+    [`RPTRA: ${!isModerator.value && user.value?.rptra ? user.value.rptra.nama : 'Semua RPTRA (Moderator)'}`],
+    [`Dicetak: ${new Date().toLocaleString('id-ID')} | Total Data: ${filteredRows.value.length}`],
+    ['']
   ]
   
-  // Rows
-  const rows = filteredRows.value.map(item => [
-    `#${item.nomor_antrian?.toString().padStart(3, '0')}`,
-    item.nama_pemilik_atm,
-    item.email || '',
-    item.whatsapp,
-    item.nomor_kk,
-    item.nomor_atm,
-    item.kelurahan,
-    item.rt,
-    item.rw,
-    item.alamat,
-    item.kartu_pemanfaat,
-    item.status,
-    item.alasan_ditolak || '',
-    formatTime(item.created_at),
-    item.rptra?.nama || ''
-  ])
-  
-  // Combine
-  const csvContent = [
-    headers.join(','),
-    ...rows.map(row => 
-      row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
-    )
-  ].join('\n')
-  
-  // Download
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  link.href = URL.createObjectURL(blob)
-  link.download = `Laporan_Antrian_${months[filterBulan.value - 1]}_${filterTahun.value}.csv`
-  link.click()
-}
+  // Data rows
+  const data = filteredRows.value.map(item => ({
+    'No Antrian': `#${item.nomor_antrian?.toString().padStart(3, '0')}`,
+    'Nama Pemilik ATM': item.nama_pemilik_atm,
+    'Email': item.email || '-',
+    'WhatsApp': item.whatsapp,
+    'Nomor KK': `'${item.nomor_kk}`, // Tambah apostrophe biar Excel treat as string
+    'Nomor ATM': `'${item.nomor_atm}`, // Biar ga ilang leading zero
+    'Kelurahan': item.kelurahan,
+    'RT': item.rt,
+    'RW': item.rw,
+    'Alamat Lengkap': item.alamat,
+    'Kartu Pemanfaat': item.kartu_pemanfaat,
+    'Status': item.status?.toUpperCase(),
+    'Alasan Ditolak': item.alasan_ditolak || '-',
+    'Waktu Daftar': formatTime(item.created_at),
+    'RPTRA': item.rptra?.nama || '-'
+  }))
 
-// Print Title (untuk reference)
-const printTitle = computed(() => {
-  const parts = [`${months[filterBulan.value - 1]} ${filterTahun.value}`]
-  if (filterKartu.value) parts.push(filterKartu.value)
-  if (searchKKATM.value) parts.push(`Pencarian: ${searchKKATM.value}`)
-  return parts.join(' | ')
-})
+  // Convert data to sheet
+  const wsData = XLSX.utils.json_to_sheet(data)
+  
+  // Combine header + data
+  const ws = XLSX.utils.aoa_to_sheet([
+    ...headerRows,
+    ...XLSX.utils.sheet_to_json(wsData, { header: 1 })
+  ])
+
+  // ==================== STYLING ====================
+  const range = XLSX.utils.decode_range(ws['!ref'])
+
+  // 1. Style Judul Besar (Row 0)
+  ws['A1'].s = {
+    font: { bold: true, size: 16, color: { rgb: '1E40AF' } },
+    alignment: { horizontal: 'left' }
+  }
+  // Merge A1 sampai akhir untuk judul
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 14 } }]
+
+  // 2. Style Info Periode (Row 2-4)
+  for (let r = 2; r <= 4; r++) {
+    const addr = `A${r + 1}` // +1 karena array 0-based, Excel 1-based
+    if (ws[addr]) {
+      ws[addr].s = {
+        font: { size: 11, color: { rgb: '374151' } }
+      }
+    }
+  }
+
+  // 3. Style Header Tabel (Row 6 - setelah 5 baris info + 1 baris kosong)
+  const headerRowIndex = 6 // Excel row 7 (1-based)
+  for (let C = range.s.c; C <= range.e.c; ++C) {
+    const address = XLSX.utils.encode_col(C) + headerRowIndex
+    if (!ws[address]) continue
+    
+    ws[address].s = {
+      font: { bold: true, color: { rgb: 'FFFFFF' }, size: 10 },
+      fill: { fgColor: { rgb: '2563EB' }, patternType: 'solid' },
+      alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+      border: {
+        top: { style: 'thin', color: { rgb: '1E40AF' } },
+        bottom: { style: 'thin', color: { rgb: '1E40AF' } },
+        left: { style: 'thin', color: { rgb: '1E40AF' } },
+        right: { style: 'thin', color: { rgb: '1E40AF' } }
+      }
+    }
+  }
+
+  // 4. Style Data Rows (borders + zebra striping opsional)
+  for (let R = headerRowIndex + 1; R <= range.e.r; ++R) {
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const address = XLSX.utils.encode_cell({ r: R, c: C })
+      if (!ws[address]) continue
+      
+      // Default style untuk semua cell data
+      ws[address].s = {
+        font: { size: 10 },
+        alignment: { vertical: 'center', wrapText: true },
+        border: {
+          top: { style: 'thin', color: { rgb: 'E5E7EB' } },
+          bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
+          left: { style: 'thin', color: { rgb: 'E5E7EB' } },
+          right: { style: 'thin', color: { rgb: 'E5E7EB' } }
+        }
+      }
+      
+      // Zebra striping (optional - setiap baris ganjil)
+      if ((R - headerRowIndex) % 2 === 0) {
+        ws[address].s.fill = { fgColor: { rgb: 'F9FAFB' }, patternType: 'solid' }
+      }
+    }
+  }
+
+  // 5. Style khusus untuk Status column (col index 11)
+  for (let R = headerRowIndex + 1; R <= range.e.r; ++R) {
+    const statusAddr = XLSX.utils.encode_cell({ r: R, c: 11 }) // Kolom Status
+    if (!ws[statusAddr]) continue
+    
+    const statusValue = ws[statusAddr].v?.toString().toLowerCase()
+    
+    if (statusValue === 'selesai') {
+      ws[statusAddr].s = {
+        ...ws[statusAddr].s,
+        font: { bold: true, color: { rgb: '059669' }, size: 10 },
+        fill: { fgColor: { rgb: 'D1FAE5' }, patternType: 'solid' }
+      }
+    } else if (statusValue === 'ditolak') {
+      ws[statusAddr].s = {
+        ...ws[statusAddr].s,
+        font: { bold: true, color: { rgb: 'DC2626' }, size: 10 },
+        fill: { fgColor: { rgb: 'FEE2E2' }, patternType: 'solid' }
+      }
+    } else if (statusValue === 'menunggu') {
+      ws[statusAddr].s = {
+        ...ws[statusAddr].s,
+        font: { bold: true, color: { rgb: 'D97706' }, size: 10 },
+        fill: { fgColor: { rgb: 'FEF3C7' }, patternType: 'solid' }
+      }
+    }
+  }
+
+  // ==================== COLUMN WIDTHS ====================
+  ws['!cols'] = [
+    { wch: 12 },  // No Antrian
+    { wch: 25 },  // Nama
+    { wch: 25 },  // Email
+    { wch: 15 },  // WhatsApp
+    { wch: 20 },  // Nomor KK
+    { wch: 20 },  // Nomor ATM
+    { wch: 15 },  // Kelurahan
+    { wch: 5 },   // RT
+    { wch: 5 },   // RW
+    { wch: 35 },  // Alamat Lengkap
+    { wch: 20 },  // Kartu Pemanfaat
+    { wch: 12 },  // Status
+    { wch: 25 },  // Alasan Ditolak
+    { wch: 20 },  // Waktu Daftar
+    { wch: 20 }   // RPTRA
+  ]
+
+  // ==================== ROW HEIGHTS ====================
+  ws['!rows'] = [
+    { hpt: 25 },  // Row 1: Judul
+    { hpt: 5 },   // Row 2: Kosong
+    { hpt: 18 },  // Row 3: Periode
+    { hpt: 18 },  // Row 4: RPTRA
+    { hpt: 18 },  // Row 5: Dicetak
+    { hpt: 5 },   // Row 6: Kosong
+    { hpt: 35 },  // Row 7: Header tabel (tinggi buat wrap text)
+    ...Array(range.e.r - 6).fill({ hpt: 20 }) // Sisanya 20pt
+  ]
+
+  // ==================== FREEZE PANES ====================
+  // Freeze di header tabel (baris 6 / Excel row 7)
+  ws['!freeze'] = { xSplit: 0, ySplit: 6 }
+
+  // Add sheet ke workbook
+  XLSX.utils.book_append_sheet(wb, ws, 'Data Lengkap')
+
+  // ==================== SHEET 2: RINGKASAN ====================
+  const summaryData = [
+    ['RINGKASAN LAPORAN'],
+    [''],
+    ['Informasi Umum'],
+    ['Periode', `${months[filterBulan.value - 1]} ${filterTahun.value}`],
+    ['RPTRA', !isModerator.value && user.value?.rptra ? user.value.rptra.nama : 'Semua RPTRA (Moderator)'],
+    ['Total Data', filteredRows.value.length],
+    [''],
+    ['Status Breakdown'],
+    ['Menunggu', filteredRows.value.filter(d => d.status === 'menunggu').length, `${((filteredRows.value.filter(d => d.status === 'menunggu').length / filteredRows.value.length) * 100).toFixed(1)}%`],
+    ['Selesai', filteredRows.value.filter(d => d.status === 'selesai').length, `${((filteredRows.value.filter(d => d.status === 'selesai').length / filteredRows.value.length) * 100).toFixed(1)}%`],
+    ['Ditolak', filteredRows.value.filter(d => d.status === 'ditolak').length, `${((filteredRows.value.filter(d => d.status === 'ditolak').length / filteredRows.value.length) * 100).toFixed(1)}%`],
+    ['Batal', filteredRows.value.filter(d => d.status === 'batal').length, `${((filteredRows.value.filter(d => d.status === 'batal').length / filteredRows.value.length) * 100).toFixed(1)}%`],
+    [''],
+    ['Filter yang Aktif'],
+    ['Kartu', filterKartu.value || 'Semua'],
+    ['Pencarian KK/ATM', searchKKATM.value || '-'],
+    [''],
+    ['Dicetak', new Date().toLocaleString('id-ID')]
+  ]
+  
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData)
+  
+  // Style summary
+  wsSummary['A1'].s = {
+    font: { bold: true, size: 14, color: { rgb: '1E40AF' } }
+  }
+  
+  // Style section headers
+  const summaryHeaders = ['A3', 'A8', 'A14']
+  summaryHeaders.forEach(addr => {
+    if (wsSummary[addr]) {
+      wsSummary[addr].s = {
+        font: { bold: true, size: 11, color: { rgb: '374151' } },
+        fill: { fgColor: { rgb: 'F3F4F6' }, patternType: 'solid' }
+      }
+    }
+  })
+  
+  wsSummary['!cols'] = [{ wch: 20 }, { wch: 15 }, { wch: 10 }]
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan')
+
+  // ==================== DOWNLOAD ====================
+  const fileName = `Laporan_Antrian_${months[filterBulan.value - 1]}_${filterTahun.value}_${new Date().getTime()}.xlsx`
+  XLSX.writeFile(wb, fileName)
+}
 
 const resetFilters = () => {
   const n = new Date()
