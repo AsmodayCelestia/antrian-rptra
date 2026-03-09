@@ -245,9 +245,100 @@
         class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
       >
         <span v-if="loading" class="animate-spin">⏳</span>
-        <span>{{ loading ? 'Memproses...' : 'Ambil Nomor Antrian' }}</span>
+        <span>{{ loading ? 'Memproses...' : 'Lanjutkan ➔' }}</span>
       </button>
     </form>
+
+    <!-- ⭐ MODAL KONFIRMASI FINAL -->
+    <div v-if="showConfirmModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div class="bg-yellow-500 text-white p-4 rounded-t-xl">
+          <h3 class="text-lg font-bold text-center">⚠️ Konfirmasi Data</h3>
+        </div>
+        
+        <div class="p-6 space-y-4">
+          <!-- Peringatan -->
+          <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p class="font-semibold text-yellow-800 mb-2 text-sm">Pastikan data yang Anda isi sudah benar:</p>
+            <ul class="space-y-1 text-xs text-yellow-700">
+              <li class="flex items-start gap-2">
+                <span class="text-yellow-600">•</span>
+                <span>Nomor KK dan ATM harus sesuai dengan dokumen fisik</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-yellow-600">•</span>
+                <span>Alamat sesuai dengan ketentuan wilayah</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-yellow-600">•</span>
+                <span>Nomor WhatsApp aktif dan dapat dihubungi</span>
+              </li>
+            </ul>
+            <div class="mt-3 p-2 bg-red-100 rounded text-red-700 text-xs font-semibold text-center">
+              ⚠️ Data yang tidak sesuai akan DITOLAK petugas saat verifikasi!
+            </div>
+          </div>
+
+          <!-- Summary Data -->
+          <div class="border rounded-lg p-4 space-y-3 text-sm bg-gray-50">
+            <h4 class="font-bold text-gray-700 border-b pb-2">Data Pendaftaran</h4>
+            
+            <div class="space-y-2">
+              <div class="flex justify-between items-start">
+                <span class="text-gray-500 text-xs">Nama:</span>
+                <span class="font-medium text-right max-w-[200px]">{{ form.nama_pemilik_atm }}</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-gray-500 text-xs">No. KK:</span>
+                <span class="font-mono text-xs">{{ form.nomor_kk }}</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-gray-500 text-xs">No. ATM:</span>
+                <span class="font-mono text-xs">{{ form.nomor_atm }}</span>
+              </div>
+              <div class="flex justify-between items-start">
+                <span class="text-gray-500 text-xs">Alamat:</span>
+                <span class="text-right text-xs max-w-[200px] leading-tight">{{ form.alamat }}</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-gray-500 text-xs">RT/RW:</span>
+                <span class="text-xs">{{ form.rt }}/{{ form.rw }}</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-gray-500 text-xs">Kartu:</span>
+                <span class="text-xs">{{ form.kartu_pemanfaat }}</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-gray-500 text-xs">WhatsApp:</span>
+                <span class="text-xs">{{ form.whatsapp }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-3 pt-2">
+            <button 
+              @click="showConfirmModal = false"
+              class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 rounded-lg font-medium transition-colors"
+            >
+              ✏️ Periksa Ulang
+            </button>
+            <button 
+              @click="confirmSubmit"
+              :disabled="loading"
+              class="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+            >
+              <span v-if="loading" class="animate-spin text-sm">⏳</span>
+              <span>{{ loading ? 'Memproses...' : '✅ Ya, Data Sudah Benar' }}</span>
+            </button>
+          </div>
+          
+          <p class="text-center text-xs text-gray-400">
+            Tekan "Periksa Ulang" untuk mengedit data
+          </p>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -270,6 +361,7 @@ const emit = defineEmits(['success'])
 
 const loading = ref(false)
 const submitError = ref('')
+const showConfirmModal = ref(false)
 
 // KK Check states
 const kkExists = ref(false)
@@ -307,7 +399,7 @@ const errors = reactive({
   whatsapp: ''
 })
 
-// ⭐ COMPUTED: Cek apakah PJLP
+// COMPUTED: Cek apakah PJLP
 const isPJLP = computed(() => form.kartu_pemanfaat === 'PJLP')
 
 // Format RW ke 001, 002, dst
@@ -344,9 +436,8 @@ const sanitizeWhatsApp = () => {
   form.whatsapp = cleaned.slice(0, 15)
 }
 
-// ⭐ VALIDASI ALAMAT CONDITIONAL
+// VALIDASI ALAMAT CONDITIONAL
 const validateAlamatPademangan = (alamat) => {
-  // PJLP bebas, gak perlu cek jalan khas
   if (isPJLP.value) return true
   
   const lower = alamat.toLowerCase()
@@ -372,15 +463,10 @@ const validators = {
     return ''
   },
   
-  // ⭐ VALIDATOR ALAMAT CONDITIONAL
   alamat: (val) => {
     if (!val.trim()) return 'Alamat wajib diisi'
     if (val.length < 10) return 'Alamat terlalu pendek (min 10 karakter)'
     if (!validateAlamatPademangan(val)) {
-      // Pesan error beda untuk PJLP vs non-PJLP
-      if (isPJLP.value) {
-        return '' // Seharusnya gak pernah sampai sini karena PJLP auto-pass
-      }
       return 'Alamat harus berada di wilayah Pademangan Timur (mengandung kata: Pademangan/Pesanggrahan)'
     }
     return ''
@@ -424,11 +510,9 @@ const validators = {
   }
 }
 
-// ⭐ HANDLER: Saat kartu berubah, re-validate alamat kalo perlu
+// Handler: Saat kartu berubah, re-validate alamat kalo perlu
 const onKartuChange = () => {
-  // Reset error alamat karena rules berubah
   errors.alamat = ''
-  // Kalo user udah isi alamat, validate ulang
   if (form.alamat) {
     validateField('alamat')
   }
@@ -448,6 +532,7 @@ const validateAll = () => {
   return isValid
 }
 
+// ⭐ HANDLE SUBMIT: Tampilkan modal konfirmasi dulu
 const handleSubmit = async () => {
   submitError.value = ''
   kkExists.value = false
@@ -458,15 +543,23 @@ const handleSubmit = async () => {
     return
   }
   
+  // Tampilkan modal konfirmasi
+  showConfirmModal.value = true
+}
+
+// ⭐ CONFIRM SUBMIT: Execute ke database
+const confirmSubmit = async () => {
   loading.value = true
   
   try {
+    // Cek ulang KK exists (antisipasi race condition)
     const checkData = await checkKKExists(form.nomor_kk, props.kuotaId)
     
     if (checkData) {
       kkExists.value = true
       kkExistsData.value = checkData
       submitError.value = `KK sudah terdaftar dengan nomor antrian #${checkData.nomor_antrian}`
+      showConfirmModal.value = false
       loading.value = false
       return
     }
@@ -477,9 +570,11 @@ const handleSubmit = async () => {
       rptra_id: props.rptraId
     })
     
+    showConfirmModal.value = false
     emit('success', data.id)
   } catch (err) {
     submitError.value = err.message || 'Terjadi kesalahan, coba lagi'
+    showConfirmModal.value = false
   } finally {
     loading.value = false
   }

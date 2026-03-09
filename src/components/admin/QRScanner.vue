@@ -27,19 +27,37 @@
       </div>
     </div>
 
-    <!-- Manual Input -->
+    <!-- Manual Input - UPDATED: Cari pakai KK/ATM -->
     <div v-if="!scannedData" class="bg-white rounded-xl shadow-lg p-6 mb-6">
-      <h3 class="font-semibold mb-4 text-gray-700">Input Manual</h3>
+      <h3 class="font-semibold mb-4 text-gray-700">Cari Manual</h3>
       <div class="space-y-3">
+        <!-- Pilih Tipe Pencarian -->
         <div>
-          <label class="text-sm text-gray-600">Nomor Antrian</label>
+          <label class="text-sm text-gray-600">Cari Berdasarkan</label>
+          <select v-model="searchType" class="w-full border rounded-lg px-4 py-2 mt-1 bg-white">
+            <option value="kk">Nomor KK</option>
+            <option value="atm">Nomor ATM</option>
+          </select>
+        </div>
+
+        <!-- Input Nomor -->
+        <div>
+          <label class="text-sm text-gray-600">
+            {{ searchType === 'kk' ? 'Nomor KK' : 'Nomor ATM' }}
+          </label>
           <input 
             v-model="manualNomor" 
-            type="number" 
-            placeholder="Contoh: 12"
-            class="w-full border rounded-lg px-4 py-2 mt-1"
+            type="text" 
+            :placeholder="searchType === 'kk' ? 'Contoh: 3175091234567890' : 'Contoh: 451234567890'"
+            class="w-full border rounded-lg px-4 py-2 mt-1 font-mono"
+            maxlength="20"
           >
+          <p class="text-xs text-gray-500 mt-1">
+            Masukkan minimal 4 digit terakhir
+          </p>
         </div>
+
+        <!-- Pilih Kuota/Bulan -->
         <div>
           <label class="text-sm text-gray-600">Bulan/Kuota</label>
           <select v-model="manualKuota" class="w-full border rounded-lg px-4 py-2 mt-1 bg-white">
@@ -48,13 +66,56 @@
             </option>
           </select>
         </div>
+
         <button 
           @click="cariManual" 
-          :disabled="!manualNomor || !manualKuota || loading"
+          :disabled="!manualNomor || manualNomor.length < 4 || !manualKuota || loading"
           class="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white py-2 rounded-lg font-medium"
         >
-          {{ loading ? 'Mencari...' : 'Cari Data' }}
+          {{ loading ? 'Mencari...' : '🔍 Cari Data' }}
         </button>
+      </div>
+
+      <!-- Hasil Pencarian (Multiple Results) -->
+      <div v-if="searchResults.length > 0" class="mt-4 border-t pt-4">
+        <p class="text-sm font-medium text-gray-700 mb-2">
+          {{ searchResults.length }} data ditemukan:
+        </p>
+        <div class="space-y-2 max-h-60 overflow-y-auto">
+          <div 
+            v-for="item in searchResults" 
+            :key="item.id"
+            @click="pilihHasil(item)"
+            class="border rounded-lg p-3 cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors"
+            :class="selectedResult?.id === item.id ? 'bg-blue-50 border-blue-500' : 'bg-gray-50'"
+          >
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="font-bold text-gray-800">#{{ item.nomor_antrian.toString().padStart(3, '0') }}</p>
+                <p class="text-sm text-gray-600">{{ item.nama_pemilik_atm }}</p>
+              </div>
+              <span :class="statusClass(item.status)" class="px-2 py-1 rounded text-xs">
+                {{ item.status }}
+              </span>
+            </div>
+            <div class="mt-2 text-xs text-gray-500 font-mono">
+              KK: {{ item.nomor_kk }} | ATM: {{ item.nomor_atm }}
+            </div>
+          </div>
+        </div>
+        <button 
+          v-if="selectedResult"
+          @click="konfirmasiPilihan"
+          class="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium"
+        >
+          Lanjutkan Verifikasi
+        </button>
+      </div>
+
+      <!-- Tidak Ketemu -->
+      <div v-if="searchPerformed && searchResults.length === 0 && !loading" class="mt-4 text-center text-gray-500">
+        <p>❌ Data tidak ditemukan</p>
+        <p class="text-xs">Coba periksa nomor KK/ATM atau pilih bulan lain</p>
       </div>
     </div>
 
@@ -166,7 +227,7 @@
             @click="resetScan"
             class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-lg font-medium"
           >
-            Scan Lainnya
+            Scan/Cari Lainnya
           </button>
         </div>
       </div>
@@ -249,9 +310,16 @@ const error = ref(null)
 const loading = ref(false)
 const verifying = ref(false)
 
+// ⭐ UPDATED: State untuk pencarian manual
+const searchType = ref('kk') // 'kk' atau 'atm'
 const manualNomor = ref('')
 const manualKuota = ref('')
 const kuotaOptions = ref([])
+
+// ⭐ NEW: State untuk hasil pencarian multiple
+const searchResults = ref([])
+const selectedResult = ref(null)
+const searchPerformed = ref(false)
 
 // Modal Tolak
 const showTolakModal = ref(false)
@@ -272,6 +340,76 @@ const formatDate = (timestamp) => {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+const statusClass = (status) => ({
+  'menunggu': 'bg-yellow-100 text-yellow-700',
+  'ditolak': 'bg-red-100 text-red-700',
+  'selesai': 'bg-green-100 text-green-700',
+  'batal': 'bg-gray-100 text-gray-500'
+}[status])
+
+// ⭐ NEW: Cari berdasarkan KK atau ATM (partial match)
+const cariManual = async () => {
+  if (!manualNomor.value || manualNomor.value.length < 4 || !manualKuota.value) return
+  
+  loading.value = true
+  error.value = null
+  searchResults.value = []
+  selectedResult.value = null
+  searchPerformed.value = false
+  
+  try {
+    const searchQuery = manualNomor.value.trim()
+    
+    // Query berdasarkan tipe pencarian
+    let query = supabase
+      .from('antrian')
+      .select('*, rptra(nama), kuota_bulanan(bulan, tahun)')
+      .eq('kuota_id', manualKuota.value)
+    
+    if (searchType.value === 'kk') {
+      // Cari nomor KK (partial match, case insensitive)
+      query = query.ilike('nomor_kk', `%${searchQuery}%`)
+    } else {
+      // Cari nomor ATM (partial match, case insensitive)
+      query = query.ilike('nomor_atm', `%${searchQuery}%`)
+    }
+    
+    const { data, error: supaError } = await query.limit(10)
+    
+    if (supaError) throw supaError
+    
+    searchResults.value = data || []
+    searchPerformed.value = true
+    
+    // ⭐ Jika hanya 1 hasil, langsung pilih
+    if (searchResults.value.length === 1) {
+      selectedResult.value = searchResults.value[0]
+      konfirmasiPilihan()
+    }
+    
+  } catch (err) {
+    console.error('Search error:', err)
+    error.value = 'Gagal mencari: ' + err.message
+  } finally {
+    loading.value = false
+  }
+}
+
+// ⭐ NEW: Pilih hasil dari list
+const pilihHasil = (item) => {
+  selectedResult.value = item
+}
+
+// ⭐ NEW: Konfirmasi pilihan dan load detail
+const konfirmasiPilihan = () => {
+  if (!selectedResult.value) return
+  scannedData.value = selectedResult.value
+  // Clear search state
+  searchResults.value = []
+  selectedResult.value = null
+  manualNomor.value = ''
 }
 
 const fetchAntrianData = async (nomor, kuota_id) => {
@@ -389,11 +527,6 @@ const handleScanResult = async (qrText) => {
   }
 }
 
-const cariManual = async () => {
-  if (!manualNomor.value || !manualKuota.value) return
-  await fetchAntrianData(manualNomor.value, manualKuota.value)
-}
-
 const verifikasiPengambilan = async () => {
   if (!scannedData.value) return
   
@@ -435,6 +568,9 @@ const resetScan = () => {
   scannedData.value = null
   error.value = null
   manualNomor.value = ''
+  searchResults.value = []
+  selectedResult.value = null
+  searchPerformed.value = false
   alasanTolak.value = ''
   alasanLainnya.value = ''
 }

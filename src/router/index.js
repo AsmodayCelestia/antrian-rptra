@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { checkSession, user } from '../composables/useAuth'
+import { checkSession, user, canManageKuota, canViewDashboard } from '../composables/useAuth'
 
 const routes = [
   {
@@ -41,28 +41,33 @@ const routes = [
       {
         path: 'dashboard',
         name: 'Dashboard',
-        component: () => import('../components/admin/Dashboard.vue')
+        component: () => import('../components/admin/Dashboard.vue'),
+        meta: { allowedRoles: ['admin', 'moderator', 'staff'] }
       },
       {
         path: 'kuota',
         name: 'Kuota',
         component: () => import('../components/admin/KuotaManager.vue'),
-        meta: { adminOnly: true }
+        meta: { allowedRoles: ['admin', 'moderator'] } // ⭐ Staff ga bisa akses
       },
       {
         path: 'scan',
         name: 'Scan',
-        component: () => import('../components/admin/QRScanner.vue')
+        component: () => import('../components/admin/QRScanner.vue'),
+        meta: { allowedRoles: ['admin', 'moderator', 'staff'] }
       }
     ]
   },
   {
-  path: '/admin/didaftarkanmanualbyadmin/:kuotaId',
-  name: 'AdminFormManual',
-  component: () => import('../pages/AdminFormManual.vue'),
-  meta: { requiresAuth: true },
-  props: true
-},
+    path: '/admin/didaftarkanmanualbyadmin/:kuotaId',
+    name: 'AdminFormManual',
+    component: () => import('../pages/AdminFormManual.vue'),
+    meta: { 
+      requiresAuth: true,
+      allowedRoles: ['admin', 'moderator'] // ⭐ Staff ga bisa manual input
+    },
+    props: true
+  },
   {
     path: '/:pathMatch(.*)*',
     redirect: '/'
@@ -74,7 +79,7 @@ const router = createRouter({
   routes
 })
 
-// ⭐ SIMPLIFIED: Cukup cek localStorage, tidak perlu async complex
+// ⭐ UPDATED: Role-based route protection
 router.beforeEach((to, from, next) => {
   const isLoggedIn = checkSession()
   const userRole = user.value?.role
@@ -89,7 +94,13 @@ router.beforeEach((to, from, next) => {
     return next({ name: 'Login', query: { redirect: to.fullPath } })
   }
   
-  // Admin only routes
+  // ⭐ NEW: Check allowed roles
+  if (to.meta.allowedRoles && !to.meta.allowedRoles.includes(userRole)) {
+    // Staff coba akses Kuota? Redirect ke dashboard
+    return next('/admin/dashboard')
+  }
+  
+  // Legacy support: adminOnly meta
   if (to.meta.adminOnly && userRole !== 'admin') {
     return next('/admin/dashboard')
   }

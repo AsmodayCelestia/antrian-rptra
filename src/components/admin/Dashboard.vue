@@ -9,11 +9,15 @@
       
       <div class="flex items-center gap-3">
         <span class="px-3 py-1 rounded-full text-sm font-medium"
-          :class="isModerator ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'"
+          :class="{
+            'bg-purple-100 text-purple-700': isModerator,
+            'bg-blue-100 text-blue-700': isAdmin,
+            'bg-green-100 text-green-700': isStaff
+          }"
         >
-          {{ isModerator ? '👑 Moderator' : '🏠 Admin' }}
+          {{ isModerator ? '👑 Moderator' : isAdmin ? '🏠 Admin' : '👷 Staff' }}
         </span>
-        <span v-if="!isModerator && user?.rptra" class="text-sm text-gray-500">
+        <span v-if="user?.rptra" class="text-sm text-gray-500">
           {{ user.rptra.nama }}
         </span>
       </div>
@@ -39,8 +43,8 @@
       </div>
     </div>
 
-    <!-- Tombol Tambah Manual -->
-    <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border border-purple-200 p-4 mb-6">
+    <!-- Pendaftaran Manual - Hanya admin & moderator -->
+    <div v-if="canEditAntrian" class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border border-purple-200 p-4 mb-6">
       <div class="flex items-center justify-between">
         <div>
           <h3 class="font-bold text-gray-800">Pendaftaran Manual</h3>
@@ -171,6 +175,7 @@
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 <div class="flex gap-1 flex-wrap justify-center">
+                  <!-- Lihat detail -->
                   <button 
                     @click="showDetail(item)"
                     class="bg-blue-100 text-blue-600 hover:bg-blue-200 px-2 py-1 rounded text-xs"
@@ -178,6 +183,8 @@
                   >
                     👁️
                   </button>
+                  
+                  <!-- Download QR -->
                   <button 
                     @click="downloadQR(item)"
                     class="bg-gray-100 text-gray-600 hover:bg-gray-200 px-2 py-1 rounded text-xs"
@@ -185,7 +192,19 @@
                   >
                     📥
                   </button>
-                  <template v-if="item.status === 'menunggu'">
+                  
+                  <!-- ⭐ EDIT DATA - Hanya admin & moderator -->
+                  <button 
+                    v-if="canEditAntrian"
+                    @click="openEditModal(item)"
+                    class="bg-yellow-100 text-yellow-600 hover:bg-yellow-200 px-2 py-1 rounded text-xs"
+                    title="Edit Data"
+                  >
+                    ✏️
+                  </button>
+                  
+                  <!-- Verifikasi/Tolak - Hanya admin & moderator -->
+                  <template v-if="canEditAntrian && item.status === 'menunggu'">
                     <button 
                       @click="updateStatus(item.id, 'selesai')"
                       class="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700"
@@ -286,7 +305,7 @@
     </div>
 
     <!-- Modal: Pilih Kuota -->
-    <div v-if="showPilihKuota" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+    <div v-if="showPilihKuota && canEditAntrian" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-md">
         <div class="bg-purple-600 text-white p-4 rounded-t-xl flex justify-between items-center">
           <h3 class="text-xl font-bold">Pilih Periode Pendaftaran</h3>
@@ -361,6 +380,187 @@
       </div>
     </div>
 
+    <!-- ⭐ MODAL EDIT DATA -->
+    <div v-if="editItem" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="bg-yellow-500 text-white p-4 rounded-t-xl flex justify-between items-center">
+          <div>
+            <h3 class="text-xl font-bold">✏️ Edit Data Pendaftaran</h3>
+            <p class="text-yellow-100 text-sm">Nomor Antrian #{{ editItem.nomor_antrian }}</p>
+          </div>
+          <button @click="closeEditModal" class="text-white hover:bg-yellow-600 p-2 rounded-lg">✕</button>
+        </div>
+
+        <div class="p-6 space-y-4">
+          <!-- Info Read-only -->
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+            <p class="font-semibold">ℹ️ Informasi:</p>
+            <p>Nomor Antrian tidak dapat diubah. Status diubah via tombol Verifikasi/Tolak.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Nama Pemilik ATM -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Nama Pemilik ATM <span class="text-red-500">*</span></label>
+              <input 
+                v-model="editForm.nama_pemilik_atm"
+                type="text"
+                class="w-full border rounded-lg px-3 py-2"
+                :class="{ 'border-red-500': editErrors.nama_pemilik_atm }"
+              >
+              <p v-if="editErrors.nama_pemilik_atm" class="text-red-500 text-xs mt-1">{{ editErrors.nama_pemilik_atm }}</p>
+            </div>
+
+            <!-- Email -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input 
+                v-model="editForm.email"
+                type="email"
+                class="w-full border rounded-lg px-3 py-2"
+              >
+            </div>
+
+            <!-- WhatsApp -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">WhatsApp <span class="text-red-500">*</span></label>
+              <input 
+                v-model="editForm.whatsapp"
+                type="text"
+                class="w-full border rounded-lg px-3 py-2"
+                :class="{ 'border-red-500': editErrors.whatsapp }"
+              >
+              <p v-if="editErrors.whatsapp" class="text-red-500 text-xs mt-1">{{ editErrors.whatsapp }}</p>
+            </div>
+
+            <!-- Nomor KK -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Nomor KK <span class="text-red-500">*</span></label>
+              <input 
+                v-model="editForm.nomor_kk"
+                type="text"
+                maxlength="16"
+                class="w-full border rounded-lg px-3 py-2 font-mono"
+                :class="{ 'border-red-500': editErrors.nomor_kk }"
+              >
+              <p v-if="editErrors.nomor_kk" class="text-red-500 text-xs mt-1">{{ editErrors.nomor_kk }}</p>
+            </div>
+
+            <!-- Nomor ATM -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Nomor ATM <span class="text-red-500">*</span></label>
+              <input 
+                v-model="editForm.nomor_atm"
+                type="text"
+                maxlength="16"
+                class="w-full border rounded-lg px-3 py-2 font-mono"
+                :class="{ 'border-red-500': editErrors.nomor_atm }"
+              >
+              <p v-if="editErrors.nomor_atm" class="text-red-500 text-xs mt-1">{{ editErrors.nomor_atm }}</p>
+            </div>
+
+            <!-- Kartu Pemanfaat -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Kartu Pemanfaat <span class="text-red-500">*</span></label>
+              <select 
+                v-model="editForm.kartu_pemanfaat"
+                class="w-full border rounded-lg px-3 py-2 bg-white"
+                :class="{ 'border-red-500': editErrors.kartu_pemanfaat }"
+              >
+                <option v-for="k in kartuOptions" :key="k" :value="k">{{ k }}</option>
+              </select>
+              <p v-if="editErrors.kartu_pemanfaat" class="text-red-500 text-xs mt-1">{{ editErrors.kartu_pemanfaat }}</p>
+            </div>
+
+            <!-- Kelurahan -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Kelurahan <span class="text-red-500">*</span></label>
+              <input 
+                v-model="editForm.kelurahan"
+                type="text"
+                class="w-full border rounded-lg px-3 py-2"
+                :class="{ 'border-red-500': editErrors.kelurahan }"
+              >
+              <p v-if="editErrors.kelurahan" class="text-red-500 text-xs mt-1">{{ editErrors.kelurahan }}</p>
+            </div>
+
+            <!-- RT -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">RT <span class="text-red-500">*</span></label>
+              <input 
+                v-model="editForm.rt"
+                type="text"
+                maxlength="3"
+                class="w-full border rounded-lg px-3 py-2"
+                :class="{ 'border-red-500': editErrors.rt }"
+              >
+              <p v-if="editErrors.rt" class="text-red-500 text-xs mt-1">{{ editErrors.rt }}</p>
+            </div>
+
+            <!-- RW -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">RW <span class="text-red-500">*</span></label>
+              <input 
+                v-model="editForm.rw"
+                type="text"
+                maxlength="3"
+                class="w-full border rounded-lg px-3 py-2"
+                :class="{ 'border-red-500': editErrors.rw }"
+              >
+              <p v-if="editErrors.rw" class="text-red-500 text-xs mt-1">{{ editErrors.rw }}</p>
+            </div>
+          </div>
+
+          <!-- Alamat Lengkap -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Alamat Lengkap <span class="text-red-500">*</span></label>
+            <textarea 
+              v-model="editForm.alamat"
+              rows="3"
+              class="w-full border rounded-lg px-3 py-2"
+              :class="{ 'border-red-500': editErrors.alamat }"
+            ></textarea>
+            <p v-if="editErrors.alamat" class="text-red-500 text-xs mt-1">{{ editErrors.alamat }}</p>
+          </div>
+
+          <!-- Read-only info -->
+          <div class="grid grid-cols-2 gap-4 bg-gray-50 rounded-lg p-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Nomor Antrian (Read-only)</label>
+              <p class="text-sm font-bold text-gray-800">#{{ editItem.nomor_antrian?.toString().padStart(3, '0') }}</p>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Status (Read-only)</label>
+              <p class="text-sm font-medium text-gray-800">{{ editItem.status?.toUpperCase() }}</p>
+            </div>
+          </div>
+
+          <!-- Error global -->
+          <div v-if="editError" class="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg text-sm">
+            {{ editError }}
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-3 pt-4 border-t">
+            <button 
+              @click="closeEditModal"
+              class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 rounded-lg font-medium"
+            >
+              Batal
+            </button>
+            <button 
+              @click="submitEdit"
+              :disabled="editLoading"
+              class="flex-1 bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-300 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2"
+            >
+              <span v-if="editLoading">⏳ Menyimpan...</span>
+              <span v-else>💾 Simpan Perubahan</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal: Detail -->
     <div v-if="detailItem" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -426,15 +626,24 @@
 
           <div class="flex gap-3 pt-4 border-t">
             <button @click="downloadQR(detailItem)" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2">📥 Download QR</button>
-            <button v-if="detailItem.status === 'menunggu'" @click="updateStatus(detailItem.id, 'selesai'); closeDetail()" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium">✓ Verifikasi</button>
-            <button v-if="detailItem.status === 'menunggu'" @click="showTolakModal(detailItem); closeDetail()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium">✕ Tolak</button>
+            
+            <template v-if="canEditAntrian && detailItem.status === 'menunggu'">
+              <button @click="updateStatus(detailItem.id, 'selesai'); closeDetail()" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium">✓ Verifikasi</button>
+              <button @click="showTolakModal(detailItem); closeDetail()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium">✕ Tolak</button>
+            </template>
+            
+            <template v-else-if="detailItem.status === 'menunggu'">
+              <div class="flex-1 bg-yellow-50 border border-yellow-200 text-yellow-700 py-2 rounded-lg text-center text-sm flex items-center justify-center gap-2">
+                <span>🔒</span> Verifikasi via QR Scanner
+              </div>
+            </template>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Modal: Tolak -->
-    <div v-if="showTolakItem" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div v-if="showTolakItem && canEditAntrian" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
         <h3 class="text-xl font-bold text-red-600 mb-2">Tolak Pendaftaran</h3>
         <p class="text-gray-600 text-sm mb-4">Nomor #{{ showTolakItem.nomor_antrian }} - {{ showTolakItem.nama_pemilik_atm }}</p>
@@ -467,8 +676,8 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import * as XLSX from 'xlsx'
-import { user, isModerator } from '../../composables/useAuth'
-import { getAllAntrian, updateStatusAntrian, getKuotaAktif } from '../../composables/useAntrian'
+import { user, isModerator, isAdmin, isStaff, canEditAntrian } from '../../composables/useAuth'
+import { getAllAntrian, updateStatusAntrian, getKuotaAktif, updateAntrian } from '../../composables/useAntrian'
 import { getAllKuota } from '../../composables/useKuota'
 import QRCode from 'qrcode'
 
@@ -478,14 +687,14 @@ const router = useRouter()
 const antrianList = ref([])
 const kuotaAktif = ref(null)
 
-// Filter State - Default bulan & tahun sekarang
+// Filter State
 const now = new Date()
 const filterBulan = ref(now.getMonth() + 1)
 const filterTahun = ref(now.getFullYear())
 const filterKartu = ref('')
 const searchKKATM = ref('')
 
-// Pagination State - Default 20
+// Pagination State
 const currentPage = ref(1)
 const perPage = ref(20)
 
@@ -497,22 +706,19 @@ const tahunOptions = computed(() => {
 })
 const kartuOptions = ['KJP', 'PJLP', 'Kartu Anak Jakarta', 'Kartu Lansia Jakarta', 'Kartu Disabilitas', 'PKK', 'Daswisma', 'Kartu Pekerja Jakarta', 'Guru Non PNS']
 
-// Computed: Filtered Rows (Semua data yang difilter, untuk print dan stats)
+// Computed: Filtered Rows
 const filteredRows = computed(() => {
   let result = [...antrianList.value]
   
-  // Filter bulan/tahun dari created_at
   result = result.filter(item => {
     const date = new Date(item.created_at)
     return date.getMonth() + 1 === filterBulan.value && date.getFullYear() === filterTahun.value
   })
   
-  // Filter kartu
   if (filterKartu.value) {
     result = result.filter(item => item.kartu_pemanfaat === filterKartu.value)
   }
   
-  // Search KK/ATM (partial match, hanya angka)
   if (searchKKATM.value) {
     const q = searchKKATM.value.replace(/\D/g, '')
     if (q.length > 0) {
@@ -526,7 +732,7 @@ const filteredRows = computed(() => {
   return result
 })
 
-// Computed: Paginated Rows (Data yang ditampilkan di table dengan pagination)
+// Computed: Paginated Rows
 const paginatedRows = computed(() => {
   const start = (currentPage.value - 1) * perPage.value
   return filteredRows.value.slice(start, start + perPage.value)
@@ -537,7 +743,7 @@ const totalPages = computed(() => Math.ceil(filteredRows.value.length / perPage.
 const paginationStart = computed(() => filteredRows.value.length > 0 ? (currentPage.value - 1) * perPage.value + 1 : 0)
 const paginationEnd = computed(() => Math.min(currentPage.value * perPage.value, filteredRows.value.length))
 
-// Computed: Visible Page Numbers (max 5 buttons)
+// Computed: Visible Page Numbers
 const visiblePages = computed(() => {
   const pages = []
   const maxVisible = 5
@@ -577,31 +783,129 @@ const showTolakItem = ref(null)
 const alasanTolak = ref('')
 const alasanLainnya = ref('')
 
-// ⭐ EXPORT EXCEL DENGAN STYLING
+// ⭐ EDIT MODAL STATES
+const editItem = ref(null)
+const editForm = ref({})
+const editErrors = ref({})
+const editError = ref('')
+const editLoading = ref(false)
+
+// ⭐ OPEN EDIT MODAL
+const openEditModal = (item) => {
+  editItem.value = { ...item }
+  editForm.value = {
+    nama_pemilik_atm: item.nama_pemilik_atm,
+    email: item.email || '',
+    whatsapp: item.whatsapp,
+    nomor_kk: item.nomor_kk,
+    nomor_atm: item.nomor_atm,
+    kartu_pemanfaat: item.kartu_pemanfaat,
+    kelurahan: item.kelurahan,
+    rt: item.rt,
+    rw: item.rw,
+    alamat: item.alamat
+  }
+  editErrors.value = {}
+  editError.value = ''
+}
+
+// ⭐ CLOSE EDIT MODAL
+const closeEditModal = () => {
+  editItem.value = null
+  editForm.value = {}
+  editErrors.value = {}
+  editError.value = ''
+  editLoading.value = false
+}
+
+// ⭐ VALIDATE EDIT FORM
+const validateEditForm = () => {
+  const errors = {}
+  
+  if (!editForm.value.nama_pemilik_atm?.trim()) {
+    errors.nama_pemilik_atm = 'Nama wajib diisi'
+  }
+  
+  if (!editForm.value.whatsapp?.trim()) {
+    errors.whatsapp = 'WhatsApp wajib diisi'
+  }
+  
+  if (!editForm.value.nomor_kk?.trim()) {
+    errors.nomor_kk = 'Nomor KK wajib diisi'
+  } else if (editForm.value.nomor_kk.length < 16) {
+    errors.nomor_kk = 'Nomor KK harus 16 digit'
+  }
+  
+  if (!editForm.value.nomor_atm?.trim()) {
+    errors.nomor_atm = 'Nomor ATM wajib diisi'
+  }
+  
+  if (!editForm.value.kartu_pemanfaat?.trim()) {
+    errors.kartu_pemanfaat = 'Kartu pemanfaat wajib dipilih'
+  }
+  
+  if (!editForm.value.kelurahan?.trim()) {
+    errors.kelurahan = 'Kelurahan wajib diisi'
+  }
+  
+  if (!editForm.value.rt?.trim()) {
+    errors.rt = 'RT wajib diisi'
+  }
+  
+  if (!editForm.value.rw?.trim()) {
+    errors.rw = 'RW wajib diisi'
+  }
+  
+  if (!editForm.value.alamat?.trim()) {
+    errors.alamat = 'Alamat wajib diisi'
+  }
+  
+  editErrors.value = errors
+  return Object.keys(errors).length === 0
+}
+
+// ⭐ SUBMIT EDIT
+const submitEdit = async () => {
+  if (!validateEditForm()) return
+  
+  editLoading.value = true
+  editError.value = ''
+  
+  try {
+    await updateAntrian(editItem.value.id, {
+      nama_pemilik_atm: editForm.value.nama_pemilik_atm,
+      email: editForm.value.email || null,
+      whatsapp: editForm.value.whatsapp,
+      nomor_kk: editForm.value.nomor_kk,
+      nomor_atm: editForm.value.nomor_atm,
+      kartu_pemanfaat: editForm.value.kartu_pemanfaat,
+      kelurahan: editForm.value.kelurahan,
+      rt: editForm.value.rt,
+      rw: editForm.value.rw,
+      alamat: editForm.value.alamat
+    })
+    
+    // Refresh data
+    await fetchAntrian()
+    closeEditModal()
+    
+  } catch (err) {
+    console.error('Edit error:', err)
+    editError.value = 'Gagal menyimpan perubahan: ' + err.message
+  } finally {
+    editLoading.value = false
+  }
+}
+
+// Export Excel
 const downloadExcel = () => {
-  // Create workbook
-  const wb = XLSX.utils.book_new()
-  
-  // ==================== SHEET 1: DATA LENGKAP ====================
-  
-  // Header info rows
-  const headerRows = [
-    ['LAPORAN ANTRIAN RPTRA - DATA LENGKAP'],
-    [''],
-    [`Periode: ${months[filterBulan.value - 1]} ${filterTahun.value}`],
-    [`RPTRA: ${!isModerator.value && user.value?.rptra ? user.value.rptra.nama : 'Semua RPTRA (Moderator)'}`],
-    [`Dicetak: ${new Date().toLocaleString('id-ID')} | Total Data: ${filteredRows.value.length}`],
-    ['']
-  ]
-  
-  // Data rows
   const data = filteredRows.value.map(item => ({
     'No Antrian': `#${item.nomor_antrian?.toString().padStart(3, '0')}`,
     'Nama Pemilik ATM': item.nama_pemilik_atm,
     'Email': item.email || '-',
     'WhatsApp': item.whatsapp,
-    'Nomor KK': `'${item.nomor_kk}`, // Tambah apostrophe biar Excel treat as string
-    'Nomor ATM': `'${item.nomor_atm}`, // Biar ga ilang leading zero
+    'Nomor KK': `'${item.nomor_kk}`,
+    'Nomor ATM': `'${item.nomor_atm}`,
     'Kelurahan': item.kelurahan,
     'RT': item.rt,
     'RW': item.rw,
@@ -613,147 +917,49 @@ const downloadExcel = () => {
     'RPTRA': item.rptra?.nama || '-'
   }))
 
-  // Convert data to sheet
+  const wb = XLSX.utils.book_new()
   const wsData = XLSX.utils.json_to_sheet(data)
   
-  // Combine header + data
+  const headerRows = [
+    ['LAPORAN ANTRIAN RPTRA - DATA LENGKAP'],
+    [''],
+    [`Periode: ${months[filterBulan.value - 1]} ${filterTahun.value}`],
+    [`RPTRA: ${!isModerator.value && user.value?.rptra ? user.value.rptra.nama : 'Semua RPTRA (Moderator)'}`],
+    [`Dicetak: ${new Date().toLocaleString('id-ID')} | Total Data: ${filteredRows.value.length}`],
+    ['']
+  ]
+  
   const ws = XLSX.utils.aoa_to_sheet([
     ...headerRows,
     ...XLSX.utils.sheet_to_json(wsData, { header: 1 })
   ])
 
-  // ==================== STYLING ====================
   const range = XLSX.utils.decode_range(ws['!ref'])
-
-  // 1. Style Judul Besar (Row 0)
-  ws['A1'].s = {
-    font: { bold: true, size: 16, color: { rgb: '1E40AF' } },
-    alignment: { horizontal: 'left' }
-  }
-  // Merge A1 sampai akhir untuk judul
+  
+  ws['A1'].s = { font: { bold: true, size: 16, color: { rgb: '1E40AF' } } }
   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 14 } }]
-
-  // 2. Style Info Periode (Row 2-4)
-  for (let r = 2; r <= 4; r++) {
-    const addr = `A${r + 1}` // +1 karena array 0-based, Excel 1-based
-    if (ws[addr]) {
-      ws[addr].s = {
-        font: { size: 11, color: { rgb: '374151' } }
-      }
-    }
-  }
-
-  // 3. Style Header Tabel (Row 6 - setelah 5 baris info + 1 baris kosong)
-  const headerRowIndex = 6 // Excel row 7 (1-based)
+  
+  const headerRowIndex = 6
   for (let C = range.s.c; C <= range.e.c; ++C) {
     const address = XLSX.utils.encode_col(C) + headerRowIndex
     if (!ws[address]) continue
-    
     ws[address].s = {
       font: { bold: true, color: { rgb: 'FFFFFF' }, size: 10 },
       fill: { fgColor: { rgb: '2563EB' }, patternType: 'solid' },
-      alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-      border: {
-        top: { style: 'thin', color: { rgb: '1E40AF' } },
-        bottom: { style: 'thin', color: { rgb: '1E40AF' } },
-        left: { style: 'thin', color: { rgb: '1E40AF' } },
-        right: { style: 'thin', color: { rgb: '1E40AF' } }
-      }
+      alignment: { horizontal: 'center', vertical: 'center' }
     }
   }
 
-  // 4. Style Data Rows (borders + zebra striping opsional)
-  for (let R = headerRowIndex + 1; R <= range.e.r; ++R) {
-    for (let C = range.s.c; C <= range.e.c; ++C) {
-      const address = XLSX.utils.encode_cell({ r: R, c: C })
-      if (!ws[address]) continue
-      
-      // Default style untuk semua cell data
-      ws[address].s = {
-        font: { size: 10 },
-        alignment: { vertical: 'center', wrapText: true },
-        border: {
-          top: { style: 'thin', color: { rgb: 'E5E7EB' } },
-          bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
-          left: { style: 'thin', color: { rgb: 'E5E7EB' } },
-          right: { style: 'thin', color: { rgb: 'E5E7EB' } }
-        }
-      }
-      
-      // Zebra striping (optional - setiap baris ganjil)
-      if ((R - headerRowIndex) % 2 === 0) {
-        ws[address].s.fill = { fgColor: { rgb: 'F9FAFB' }, patternType: 'solid' }
-      }
-    }
-  }
-
-  // 5. Style khusus untuk Status column (col index 11)
-  for (let R = headerRowIndex + 1; R <= range.e.r; ++R) {
-    const statusAddr = XLSX.utils.encode_cell({ r: R, c: 11 }) // Kolom Status
-    if (!ws[statusAddr]) continue
-    
-    const statusValue = ws[statusAddr].v?.toString().toLowerCase()
-    
-    if (statusValue === 'selesai') {
-      ws[statusAddr].s = {
-        ...ws[statusAddr].s,
-        font: { bold: true, color: { rgb: '059669' }, size: 10 },
-        fill: { fgColor: { rgb: 'D1FAE5' }, patternType: 'solid' }
-      }
-    } else if (statusValue === 'ditolak') {
-      ws[statusAddr].s = {
-        ...ws[statusAddr].s,
-        font: { bold: true, color: { rgb: 'DC2626' }, size: 10 },
-        fill: { fgColor: { rgb: 'FEE2E2' }, patternType: 'solid' }
-      }
-    } else if (statusValue === 'menunggu') {
-      ws[statusAddr].s = {
-        ...ws[statusAddr].s,
-        font: { bold: true, color: { rgb: 'D97706' }, size: 10 },
-        fill: { fgColor: { rgb: 'FEF3C7' }, patternType: 'solid' }
-      }
-    }
-  }
-
-  // ==================== COLUMN WIDTHS ====================
   ws['!cols'] = [
-    { wch: 12 },  // No Antrian
-    { wch: 25 },  // Nama
-    { wch: 25 },  // Email
-    { wch: 15 },  // WhatsApp
-    { wch: 20 },  // Nomor KK
-    { wch: 20 },  // Nomor ATM
-    { wch: 15 },  // Kelurahan
-    { wch: 5 },   // RT
-    { wch: 5 },   // RW
-    { wch: 35 },  // Alamat Lengkap
-    { wch: 20 },  // Kartu Pemanfaat
-    { wch: 12 },  // Status
-    { wch: 25 },  // Alasan Ditolak
-    { wch: 20 },  // Waktu Daftar
-    { wch: 20 }   // RPTRA
+    { wch: 12 }, { wch: 25 }, { wch: 25 }, { wch: 15 },
+    { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 5 },
+    { wch: 5 }, { wch: 35 }, { wch: 20 }, { wch: 12 },
+    { wch: 25 }, { wch: 20 }, { wch: 20 }
   ]
-
-  // ==================== ROW HEIGHTS ====================
-  ws['!rows'] = [
-    { hpt: 25 },  // Row 1: Judul
-    { hpt: 5 },   // Row 2: Kosong
-    { hpt: 18 },  // Row 3: Periode
-    { hpt: 18 },  // Row 4: RPTRA
-    { hpt: 18 },  // Row 5: Dicetak
-    { hpt: 5 },   // Row 6: Kosong
-    { hpt: 35 },  // Row 7: Header tabel (tinggi buat wrap text)
-    ...Array(range.e.r - 6).fill({ hpt: 20 }) // Sisanya 20pt
-  ]
-
-  // ==================== FREEZE PANES ====================
-  // Freeze di header tabel (baris 6 / Excel row 7)
+  
   ws['!freeze'] = { xSplit: 0, ySplit: 6 }
-
-  // Add sheet ke workbook
   XLSX.utils.book_append_sheet(wb, ws, 'Data Lengkap')
 
-  // ==================== SHEET 2: RINGKASAN ====================
   const summaryData = [
     ['RINGKASAN LAPORAN'],
     [''],
@@ -763,40 +969,19 @@ const downloadExcel = () => {
     ['Total Data', filteredRows.value.length],
     [''],
     ['Status Breakdown'],
-    ['Menunggu', filteredRows.value.filter(d => d.status === 'menunggu').length, `${((filteredRows.value.filter(d => d.status === 'menunggu').length / filteredRows.value.length) * 100).toFixed(1)}%`],
-    ['Selesai', filteredRows.value.filter(d => d.status === 'selesai').length, `${((filteredRows.value.filter(d => d.status === 'selesai').length / filteredRows.value.length) * 100).toFixed(1)}%`],
-    ['Ditolak', filteredRows.value.filter(d => d.status === 'ditolak').length, `${((filteredRows.value.filter(d => d.status === 'ditolak').length / filteredRows.value.length) * 100).toFixed(1)}%`],
-    ['Batal', filteredRows.value.filter(d => d.status === 'batal').length, `${((filteredRows.value.filter(d => d.status === 'batal').length / filteredRows.value.length) * 100).toFixed(1)}%`],
-    [''],
-    ['Filter yang Aktif'],
-    ['Kartu', filterKartu.value || 'Semua'],
-    ['Pencarian KK/ATM', searchKKATM.value || '-'],
+    ['Menunggu', filteredRows.value.filter(d => d.status === 'menunggu').length],
+    ['Selesai', filteredRows.value.filter(d => d.status === 'selesai').length],
+    ['Ditolak', filteredRows.value.filter(d => d.status === 'ditolak').length],
+    ['Batal', filteredRows.value.filter(d => d.status === 'batal').length],
     [''],
     ['Dicetak', new Date().toLocaleString('id-ID')]
   ]
   
   const wsSummary = XLSX.utils.aoa_to_sheet(summaryData)
-  
-  // Style summary
-  wsSummary['A1'].s = {
-    font: { bold: true, size: 14, color: { rgb: '1E40AF' } }
-  }
-  
-  // Style section headers
-  const summaryHeaders = ['A3', 'A8', 'A14']
-  summaryHeaders.forEach(addr => {
-    if (wsSummary[addr]) {
-      wsSummary[addr].s = {
-        font: { bold: true, size: 11, color: { rgb: '374151' } },
-        fill: { fgColor: { rgb: 'F3F4F6' }, patternType: 'solid' }
-      }
-    }
-  })
-  
-  wsSummary['!cols'] = [{ wch: 20 }, { wch: 15 }, { wch: 10 }]
+  wsSummary['A1'].s = { font: { bold: true, size: 14, color: { rgb: '1E40AF' } } }
+  wsSummary['!cols'] = [{ wch: 20 }, { wch: 15 }]
   XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan')
 
-  // ==================== DOWNLOAD ====================
   const fileName = `Laporan_Antrian_${months[filterBulan.value - 1]}_${filterTahun.value}_${new Date().getTime()}.xlsx`
   XLSX.writeFile(wb, fileName)
 }

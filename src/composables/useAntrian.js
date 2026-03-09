@@ -300,3 +300,19 @@ export const generateNomorAntrianAdmin = async (formData) => {
   
   return data
 }
+
+// ⭐ FUNGSI BARU: Update data antrian (untuk edit)
+export const updateAntrian = async (id, updateData) => {
+  const { data, error } = await supabase
+    .from('antrian')
+    .update({
+      ...updateData,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', id)
+    .select()
+    .single()
+  
+  if (error) throw error
+  return data
+}
