@@ -56,7 +56,7 @@
     </div>
 
     <!-- Kuota Control -->
-    <div v-if="!isModerator" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+    <!-- <div v-if="!isModerator" class="bg-white rounded-xl shadow-lg p-6 mb-6">
       <div class="flex justify-between items-center mb-4">
         <div>
           <h3 class="font-bold text-lg">Kuota Bulan Ini</h3>
@@ -111,7 +111,7 @@
         <p class="mb-2">Belum ada kuota untuk bulan ini</p>
         <p class="text-sm">Klik "Buat Kuota" untuk mengatur</p>
       </div>
-    </div>
+    </div> -->
 
     <!-- Antrian List -->
     <div class="bg-white rounded-xl shadow-lg overflow-hidden">
@@ -588,6 +588,7 @@ import { user, isModerator } from '../../composables/useAuth'
 import { getAllAntrian, getStats, updateStatusAntrian, getKuotaAktif } from '../../composables/useAntrian'
 import { createKuota, updateKuota, toggleKuotaStatus, checkKuotaExists, getAllKuota } from '../../composables/useKuota'
 import { supabase } from '../../lib/supabase'
+import { formatWIB } from '../../lib/supabase'
 import QRCode from 'qrcode'
 
 const router = useRouter()
@@ -640,11 +641,22 @@ const statusClass = (status) => ({
   'batal': 'bg-gray-100 text-gray-500'
 }[status])
 
+
 const formatTime = (timestamp) => {
-  return new Date(timestamp).toLocaleTimeString('id-ID', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  })
+  if (!timestamp) return '-'
+  // Parse UTC dari database, convert ke WIB
+  const date = new Date(timestamp)
+  // WIB = UTC+7
+  const wibTime = new Date(date.getTime() + (7 * 60 * 60 * 1000))
+  
+  return wibTime.toLocaleString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'UTC'  // ⭐ Penting: treat sebagai UTC supaya gak di-convert lagi
+  }) + ' WIB'
 }
 
 const formatMonthYear = (bulan, tahun) => {
@@ -669,9 +681,9 @@ const openPilihKuotaModal = async () => {
     // Sort: yang ada sisa dulu, then by date desc
     kuotaList.value = (result || []).sort((a, b) => {
       const sisaA = a.kuota - (a.terdaftar || 0)
-      const sisiB = b.kuota - (b.terdaftar || 0)
-      if (sisaA > 0 && sisiB <= 0) return -1
-      if (sisaA <= 0 && sisiB > 0) return 1
+      const sisaB = b.kuota - (b.terdaftar || 0)
+      if (sisaA > 0 && sisaB <= 0) return -1
+      if (sisaA <= 0 && sisaB > 0) return 1
       return new Date(b.created_at) - new Date(a.created_at)
     })
   } catch (err) {

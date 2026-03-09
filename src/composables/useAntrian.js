@@ -135,7 +135,7 @@ export const updateStatusAntrian = async (id, status, alasan = null) => {
 export const getAllAntrian = async () => {
   let query = supabase
     .from('antrian')
-    .select('*, rptra(nama)')
+    .select('*, rptra(nama), kuota_bulanan(bulan, tahun)')
     .order('created_at', { ascending: false })
   
   if (!canViewAllRptra()) {

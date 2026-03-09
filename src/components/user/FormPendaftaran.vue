@@ -43,6 +43,7 @@
         <select 
           v-model="form.kartu_pemanfaat" 
           required
+          @change="onKartuChange"
           @blur="validateField('kartu_pemanfaat')"
           :class="[
             'w-full px-4 py-2 border rounded-lg focus:ring-2 outline-none transition-all bg-white',
@@ -63,10 +64,11 @@
         <p v-if="errors.kartu_pemanfaat" class="text-red-500 text-xs mt-1">{{ errors.kartu_pemanfaat }}</p>
       </div>
 
-      <!-- Alamat dengan Validasi Jalan -->
+      <!-- Alamat dengan Validasi Conditional -->
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">
           Alamat Kartu Keluarga <span class="text-red-500">*</span>
+          <span v-if="isPJLP" class="text-blue-600 font-normal text-xs ml-1">(PJLP: Bebas wilayah)</span>
         </label>
         <textarea 
           v-model="form.alamat" 
@@ -77,10 +79,11 @@
             'w-full px-4 py-2 border rounded-lg focus:ring-2 outline-none transition-all resize-none',
             errors.alamat ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'
           ]"
-          placeholder="Contoh: Jalan exampel 2 Gang XX No 01"
+          :placeholder="isPJLP ? 'Contoh: Jalan Sudirman No 1, Jakarta Pusat' : 'Contoh: Jalan Pademangan 2 Gang XX No 01'"
         ></textarea>
         <p v-if="errors.alamat" class="text-red-500 text-xs mt-1">{{ errors.alamat }}</p>
-        <p v-else class="text-gray-400 text-xs mt-1"></p>
+        <p v-else-if="!isPJLP" class="text-gray-400 text-xs mt-1">Harus berada di wilayah Pademangan Timur</p>
+        <p v-else class="text-blue-600 text-xs mt-1">PJLP dapat mengisi alamat di luar Pademangan Timur</p>
       </div>
 
       <!-- RT/RW -->
@@ -129,7 +132,7 @@
         </div>
       </div>
 
-      <!-- Nomor KK - Tanpa Pengecekan Real-time -->
+      <!-- Nomor KK -->
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">
           Nomor Kartu Keluarga <span class="text-red-500">*</span>
@@ -217,7 +220,7 @@
         <p v-else class="text-gray-400 text-xs mt-1">Format: 08xxxxxxxxxx (min 10 digit)</p>
       </div>
 
-      <!-- KK Exists Warning (muncul kalo check di submit dan ketemu) -->
+      <!-- KK Exists Warning -->
       <div v-if="kkExists" class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">
         <div class="flex items-center gap-2 font-semibold mb-1">
           <span>❌</span>
@@ -268,11 +271,11 @@ const emit = defineEmits(['success'])
 const loading = ref(false)
 const submitError = ref('')
 
-// KK Check states (hanya untuk display, tidak block form)
+// KK Check states
 const kkExists = ref(false)
 const kkExistsData = ref(null)
 
-// Jalan khas Pademangan Timur
+// Jalan khas Pademangan Timur (hanya untuk non-PJLP)
 const jalanKhasPademanganTimur = [
   'pademangan',
   'pesanggrahan'
@@ -304,6 +307,9 @@ const errors = reactive({
   whatsapp: ''
 })
 
+// ⭐ COMPUTED: Cek apakah PJLP
+const isPJLP = computed(() => form.kartu_pemanfaat === 'PJLP')
+
 // Format RW ke 001, 002, dst
 const formatRW = (num) => {
   return num.toString().padStart(3, '0')
@@ -318,7 +324,6 @@ const formatRT = () => {
 // Sanitizers
 const sanitizeNumber = (field) => {
   form[field] = form[field].replace(/\D/g, '').slice(0, 16)
-  // Reset KK exists display kalo nomor berubah
   if (field === 'nomor_kk') {
     kkExists.value = false
     kkExistsData.value = null
@@ -339,8 +344,11 @@ const sanitizeWhatsApp = () => {
   form.whatsapp = cleaned.slice(0, 15)
 }
 
-// Cek alamat mengandung jalan khas Pademangan Timur
+// ⭐ VALIDASI ALAMAT CONDITIONAL
 const validateAlamatPademangan = (alamat) => {
+  // PJLP bebas, gak perlu cek jalan khas
+  if (isPJLP.value) return true
+  
   const lower = alamat.toLowerCase()
   return jalanKhasPademanganTimur.some(jalan => lower.includes(jalan))
 }
@@ -364,11 +372,16 @@ const validators = {
     return ''
   },
   
+  // ⭐ VALIDATOR ALAMAT CONDITIONAL
   alamat: (val) => {
     if (!val.trim()) return 'Alamat wajib diisi'
     if (val.length < 10) return 'Alamat terlalu pendek (min 10 karakter)'
     if (!validateAlamatPademangan(val)) {
-      return 'Alamat tidak sesuai ketentuann'
+      // Pesan error beda untuk PJLP vs non-PJLP
+      if (isPJLP.value) {
+        return '' // Seharusnya gak pernah sampai sini karena PJLP auto-pass
+      }
+      return 'Alamat harus berada di wilayah Pademangan Timur (mengandung kata: Pademangan/Pesanggrahan)'
     }
     return ''
   },
@@ -411,6 +424,16 @@ const validators = {
   }
 }
 
+// ⭐ HANDLER: Saat kartu berubah, re-validate alamat kalo perlu
+const onKartuChange = () => {
+  // Reset error alamat karena rules berubah
+  errors.alamat = ''
+  // Kalo user udah isi alamat, validate ulang
+  if (form.alamat) {
+    validateField('alamat')
+  }
+}
+
 const validateField = (field) => {
   errors[field] = validators[field](form[field])
 }
@@ -430,7 +453,6 @@ const handleSubmit = async () => {
   kkExists.value = false
   kkExistsData.value = null
   
-  // Validasi semua field dulu
   if (!validateAll()) {
     submitError.value = 'Mohon periksa kembali form'
     return
@@ -439,7 +461,6 @@ const handleSubmit = async () => {
   loading.value = true
   
   try {
-    // ⭐ CEK KK DI SINI - saat submit
     const checkData = await checkKKExists(form.nomor_kk, props.kuotaId)
     
     if (checkData) {
@@ -450,7 +471,6 @@ const handleSubmit = async () => {
       return
     }
     
-    // Lanjut daftar kalo KK belum ada
     const data = await generateNomorAntrian({
       ...form,
       kuota_id: props.kuotaId,
