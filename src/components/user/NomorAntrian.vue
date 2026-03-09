@@ -11,6 +11,7 @@
     </div>
     
     <div v-else class="bg-white rounded-xl shadow-lg p-8 text-center">
+      <!-- Success Badge -->
       <div class="mb-6">
         <span class="inline-block bg-green-100 text-green-700 px-4 py-1 rounded-full text-sm font-medium">
           ✓ Pendaftaran Berhasil
@@ -28,8 +29,29 @@
         <p class="text-xs text-gray-500 mt-2">Scan saat pengambilan</p>
       </div>
       
+      <!-- ⭐ INFO PEMBERKASAN BARU -->
+      <div class="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4 mb-6 text-left">
+        <div class="flex items-start gap-3">
+          <span class="text-2xl">📸</span>
+          <div class="flex-1">
+            <h3 class="font-bold text-yellow-800 mb-2">Screenshot bukti ini untuk pemberkasan pada hari:</h3>
+            <div class="space-y-1 text-sm text-yellow-900">
+              <p><span class="font-semibold">Hari, Tanggal:</span> {{ hariPemberkasan }}</p>
+              <p><span class="font-semibold">Pukul:</span> 08.00 s/d 11.00 WIB</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ⭐ PERINGATAN -->
+      <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
+        <p class="text-red-700 text-sm font-medium">
+          ⚠️ Petugas/Pengelola Berhak Membatalkan Jika Tidak Sesuai Syarat Ketentuan Yang Berlaku
+        </p>
+      </div>
+      
       <!-- Detail -->
-      <div class="text-left bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
+      <div class="text-left bg-gray-50 rounded-lg p-4 space-y-2 text-sm mb-6">
         <div class="flex justify-between">
           <span class="text-gray-600">Kartu:</span>
           <span class="font-medium">{{ antrian?.kartu_pemanfaat }}</span>
@@ -58,7 +80,7 @@
         </div>
       </div>
       
-      <div class="mt-6 space-y-3">
+      <div class="space-y-3">
         <button 
           @click="downloadQR"
           class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg"
@@ -93,6 +115,25 @@ const statusClass = computed(() => ({
   'ditolak': 'bg-blue-100 text-blue-700',
   'selesai': 'bg-green-100 text-green-700'
 }[antrian.value?.status] || 'bg-gray-100'))
+
+// ⭐ FUNGSI BARU: Hitung H+1 untuk pemberkasan
+const hariPemberkasan = computed(() => {
+  if (!antrian.value?.created_at) return '-'
+  
+  const createdDate = new Date(antrian.value.created_at)
+  const nextDay = new Date(createdDate)
+  nextDay.setDate(createdDate.getDate() + 1) // H+1
+  
+  const hariIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+  const bulanIndo = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
+  
+  const hari = hariIndo[nextDay.getDay()]
+  const tanggal = nextDay.getDate()
+  const bulan = bulanIndo[nextDay.getMonth()]
+  const tahun = nextDay.getFullYear()
+  
+  return `${hari}, ${tanggal} ${bulan} ${tahun}`
+})
 
 const generateQR = async () => {
   if (!qrCanvas.value || !antrian.value) {
