@@ -68,7 +68,7 @@
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">
           Alamat Kartu Keluarga <span class="text-red-500">*</span>
-          <span v-if="isPJLP" class="text-blue-600 font-normal text-xs ml-1">(PJLP: Bebas wilayah)</span>
+          <span v-if="isPJLP" class="text-blue-600 font-normal text-xs ml-1"></span>
         </label>
         <textarea 
           v-model="form.alamat" 
@@ -79,11 +79,11 @@
             'w-full px-4 py-2 border rounded-lg focus:ring-2 outline-none transition-all resize-none',
             errors.alamat ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'
           ]"
-          :placeholder="isPJLP ? 'Contoh: Jalan Sudirman No 1, Jakarta Pusat' : 'Contoh: Jalan Pademangan 2 Gang XX No 01'"
+          :placeholder="isPJLP ? 'Contoh: Jalan Sudirman No 1, Jakarta Pusat' : 'Contoh: Jalan exampel Gang XX No XX'"
         ></textarea>
         <p v-if="errors.alamat" class="text-red-500 text-xs mt-1">{{ errors.alamat }}</p>
-        <p v-else-if="!isPJLP" class="text-gray-400 text-xs mt-1">Harus berada di wilayah Pademangan Timur</p>
-        <p v-else class="text-blue-600 text-xs mt-1">PJLP dapat mengisi alamat di luar Pademangan Timur</p>
+        <!-- <p v-else-if="!isPJLP" class="text-gray-400 text-xs mt-1">Harus berada di wilayah Pademangan Timur</p>
+        <p v-else class="text-blue-600 text-xs mt-1">PJLP dapat mengisi alamat di luar Pademangan Timur</p> -->
       </div>
 
       <!-- RT/RW -->
@@ -467,7 +467,7 @@ const validators = {
     if (!val.trim()) return 'Alamat wajib diisi'
     if (val.length < 10) return 'Alamat terlalu pendek (min 10 karakter)'
     if (!validateAlamatPademangan(val)) {
-      return 'Alamat harus berada di wilayah Pademangan Timur (mengandung kata: Pademangan/Pesanggrahan)'
+      return 'Alamat tidak sesuai ketentuan'
     }
     return ''
   },
