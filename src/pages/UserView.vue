@@ -5,7 +5,6 @@
       
       <!-- Info Card -->
       <div class="bg-white rounded-xl shadow-lg p-6 text-center">
-        <div class="text-5xl mb-4">🍚</div>
         <h2 class="text-xl font-bold text-gray-800 mb-2">Selamat Datang</h2>
         <p class="text-gray-600 mb-4">
           Sistem pendaftaran online untuk program pangan bersubsidi RPTRA. 
