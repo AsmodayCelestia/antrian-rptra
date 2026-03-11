@@ -33,10 +33,11 @@
         <p class="text-gray-500 text-sm">Menunggu</p>
         <p class="text-2xl font-bold text-yellow-600">{{ stats.menunggu }}</p>
       </div>
-        <div class="bg-white rounded-xl shadow p-4 border-l-4 border-blue-500">
-          <p class="text-gray-500 text-sm">Sudah Swipe</p>
-          <p class="text-2xl font-bold text-blue-600">{{ stats.sudah_swipe }}</p>
-        </div>
+      <!-- ⭐ GANTI: 'Sudah Swipe' jadi 'Terverifikasi' -->
+      <div class="bg-white rounded-xl shadow p-4 border-l-4 border-blue-500">
+        <p class="text-gray-500 text-sm">Terverifikasi</p>
+        <p class="text-2xl font-bold text-blue-600">{{ stats.terverifikasi }}</p>
+      </div>
       <div class="bg-white rounded-xl shadow p-4 border-l-4 border-red-500">
         <p class="text-gray-500 text-sm">Ditolak</p>
         <p class="text-2xl font-bold text-red-600">{{ stats.ditolak }}</p>
@@ -171,6 +172,7 @@
               <td class="px-4 py-3 text-sm max-w-xs">
                 <div v-if="item.status === 'selesai'" class="text-green-600 font-medium text-xs">✓ Sudah ambil</div>
                 <div v-else-if="item.status === 'ditolak'" class="text-red-600 text-xs">{{ item.alasan_ditolak || 'Ditolak' }}</div>
+                <div v-else-if="item.status === 'terverifikasi'" class="text-blue-600 text-xs">Menunggu swipe...</div>
                 <div v-else-if="item.status === 'batal'" class="text-gray-500 text-xs">Dibatalkan</div>
                 <div v-else class="text-gray-400 text-xs">-</div>
               </td>
@@ -197,7 +199,7 @@
                     📥
                   </button>
                   
-                  <!-- ⭐ EDIT DATA - Hanya admin & moderator -->
+                  <!-- Edit Data - Hanya admin & moderator -->
                   <button 
                     v-if="canEditAntrian"
                     @click="openEditModal(item)"
@@ -207,32 +209,27 @@
                     ✏️
                   </button>
                   
-                  <!-- ⭐ TOMBOL BARU: Sudah Swipe Kartu - Hanya admin & moderator, status menunggu -->
-                  <button 
-                    v-if="canEditAntrian && item.status === 'menunggu'"
-                    @click="updateStatusSwipe(item.id)"
-                    :disabled="loadingSwipe[item.id]"
-                    class="bg-blue-100 text-blue-600 hover:bg-blue-200 disabled:bg-blue-50 px-2 py-1 rounded text-xs"
-                    title="Sudah Swipe Kartu"
-                  >
-                    {{ loadingSwipe[item.id] ? '⏳' : '💳' }}
-                  </button>
-                  
-                  <!-- Verifikasi/Tolak - Hanya admin & moderator -->
-                  <template v-if="canEditAntrian && (item.status === 'menunggu' || item.status === 'sudah swipe')">
-
+                  <!-- ⭐ FLOW BARU: Hanya Verifikasi & Tolak untuk status menunggu -->
+                  <template v-if="canEditAntrian && item.status === 'menunggu'">
                     <button 
-                      @click="updateStatus(item.id, 'selesai')"
+                      @click="updateStatus(item.id, 'terverifikasi')"
                       class="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700"
+                      title="Verifikasi"
                     >
                       ✓
                     </button>
                     <button 
                       @click="showTolakModal(item)"
                       class="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700"
+                      title="Tolak"
                     >
                       ✕
                     </button>
+                  </template>
+
+                  <!-- Status terverifikasi: tunggu swipe di QR Scanner -->
+                  <template v-else-if="canEditAntrian && item.status === 'terverifikasi'">
+                    <span class="text-blue-600 text-xs px-2 py-1">QR Scanner →</span>
                   </template>
                 </div>
               </td>
@@ -246,9 +243,8 @@
         </table>
       </div>
       
-      <!-- Pagination & Rows Per Page -->
+      <!-- Pagination -->
       <div class="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-t border-gray-200 bg-white gap-4">
-        <!-- Rows Per Page -->
         <div class="flex items-center gap-2 text-sm text-gray-600">
           <span>Tampilkan:</span>
           <select 
@@ -264,12 +260,10 @@
           <span>baris</span>
         </div>
 
-        <!-- Pagination Info -->
         <div class="text-sm text-gray-500">
           {{ paginationStart }} - {{ paginationEnd }} dari {{ filteredRows.length }} data
         </div>
 
-        <!-- Page Navigation -->
         <div class="flex gap-2">
           <button 
             @click="currentPage = 1" 
@@ -396,7 +390,7 @@
       </div>
     </div>
 
-    <!-- ⭐ MODAL EDIT DATA -->
+    <!-- Modal Edit Data -->
     <div v-if="editItem" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div class="bg-yellow-500 text-white p-4 rounded-t-xl flex justify-between items-center">
@@ -408,14 +402,12 @@
         </div>
 
         <div class="p-6 space-y-4">
-          <!-- Info Read-only -->
           <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
             <p class="font-semibold">ℹ️ Informasi:</p>
             <p>Nomor Antrian tidak dapat diubah. Status diubah via tombol Verifikasi/Tolak.</p>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Nama Pemilik ATM -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Nama Pemilik ATM <span class="text-red-500">*</span></label>
               <input 
@@ -427,7 +419,6 @@
               <p v-if="editErrors.nama_pemilik_atm" class="text-red-500 text-xs mt-1">{{ editErrors.nama_pemilik_atm }}</p>
             </div>
 
-            <!-- Email -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
               <input 
@@ -437,7 +428,6 @@
               >
             </div>
 
-            <!-- WhatsApp -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">WhatsApp <span class="text-red-500">*</span></label>
               <input 
@@ -449,7 +439,6 @@
               <p v-if="editErrors.whatsapp" class="text-red-500 text-xs mt-1">{{ editErrors.whatsapp }}</p>
             </div>
 
-            <!-- Nomor KK -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Nomor KK <span class="text-red-500">*</span></label>
               <input 
@@ -462,7 +451,6 @@
               <p v-if="editErrors.nomor_kk" class="text-red-500 text-xs mt-1">{{ editErrors.nomor_kk }}</p>
             </div>
 
-            <!-- Nomor ATM -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Nomor ATM <span class="text-red-500">*</span></label>
               <input 
@@ -475,7 +463,6 @@
               <p v-if="editErrors.nomor_atm" class="text-red-500 text-xs mt-1">{{ editErrors.nomor_atm }}</p>
             </div>
 
-            <!-- Kartu Pemanfaat -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Kartu Pemanfaat <span class="text-red-500">*</span></label>
               <select 
@@ -488,7 +475,6 @@
               <p v-if="editErrors.kartu_pemanfaat" class="text-red-500 text-xs mt-1">{{ editErrors.kartu_pemanfaat }}</p>
             </div>
 
-            <!-- Kelurahan -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Kelurahan <span class="text-red-500">*</span></label>
               <input 
@@ -500,7 +486,6 @@
               <p v-if="editErrors.kelurahan" class="text-red-500 text-xs mt-1">{{ editErrors.kelurahan }}</p>
             </div>
 
-            <!-- RT -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">RT <span class="text-red-500">*</span></label>
               <input 
@@ -513,7 +498,6 @@
               <p v-if="editErrors.rt" class="text-red-500 text-xs mt-1">{{ editErrors.rt }}</p>
             </div>
 
-            <!-- RW -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">RW <span class="text-red-500">*</span></label>
               <input 
@@ -527,7 +511,6 @@
             </div>
           </div>
 
-          <!-- Alamat Lengkap -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Alamat Lengkap <span class="text-red-500">*</span></label>
             <textarea 
@@ -539,7 +522,6 @@
             <p v-if="editErrors.alamat" class="text-red-500 text-xs mt-1">{{ editErrors.alamat }}</p>
           </div>
 
-          <!-- Read-only info -->
           <div class="grid grid-cols-2 gap-4 bg-gray-50 rounded-lg p-4">
             <div>
               <label class="block text-xs font-medium text-gray-500 mb-1">Nomor Antrian (Read-only)</label>
@@ -551,12 +533,10 @@
             </div>
           </div>
 
-          <!-- Error global -->
           <div v-if="editError" class="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg text-sm">
             {{ editError }}
           </div>
 
-          <!-- Actions -->
           <div class="flex gap-3 pt-4 border-t">
             <button 
               @click="closeEditModal"
@@ -643,14 +623,21 @@
           <div class="flex gap-3 pt-4 border-t">
             <button @click="downloadQR(detailItem)" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2">📥 Download QR</button>
             
-            <!-- ⭐ ADMIN/MODERATOR: Verifikasi & Tolak untuk menunggu atau sudah swipe -->
-            <template v-if="canEditAntrian && (detailItem.status === 'menunggu' || detailItem.status === 'sudah swipe')">
-              <button @click="updateStatus(detailItem.id, 'selesai'); closeDetail()" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium">✓ Verifikasi</button>
+            <!-- ⭐ FLOW BARU: Verifikasi & Tolak untuk menunggu -->
+            <template v-if="canEditAntrian && detailItem.status === 'menunggu'">
+              <button @click="updateStatus(detailItem.id, 'terverifikasi'); closeDetail()" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium">✓ Verifikasi</button>
               <button @click="showTolakModal(detailItem); closeDetail()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium">✕ Tolak</button>
             </template>
             
-            <!-- ⭐ STAFF: Ga bisa verifikasi, suruh ke QR Scanner -->
-            <template v-else-if="detailItem.status === 'menunggu' || detailItem.status === 'sudah swipe'">
+            <!-- Terverifikasi: suruh ke QR Scanner -->
+            <template v-else-if="detailItem.status === 'terverifikasi'">
+              <div class="flex-1 bg-blue-50 border border-blue-200 text-blue-700 py-2 rounded-lg text-center text-sm flex items-center justify-center gap-2">
+                <span>⏳</span> Menunggu swipe kartu
+              </div>
+            </template>
+            
+            <!-- Staff ga bisa verifikasi -->
+            <template v-else-if="detailItem.status === 'menunggu'">
               <div class="flex-1 bg-yellow-50 border border-yellow-200 text-yellow-700 py-2 rounded-lg text-center text-sm flex items-center justify-center gap-2">
                 <span>🔒</span> Verifikasi via QR Scanner
               </div>
@@ -702,22 +689,18 @@ import QRCode from 'qrcode'
 
 const router = useRouter()
 
-// Data
 const antrianList = ref([])
 const kuotaAktif = ref(null)
 
-// Filter State
 const now = new Date()
 const filterBulan = ref(now.getMonth() + 1)
 const filterTahun = ref(now.getFullYear())
 const filterKartu = ref('')
 const searchKKATM = ref('')
 
-// Pagination State
 const currentPage = ref(1)
 const perPage = ref(20)
 
-// Options
 const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
 const tahunOptions = computed(() => {
   const current = new Date().getFullYear()
@@ -725,10 +708,6 @@ const tahunOptions = computed(() => {
 })
 const kartuOptions = ['KJP', 'PJLP', 'Kartu Anak Jakarta', 'Kartu Lansia Jakarta', 'Kartu Disabilitas', 'PKK', 'Daswisma', 'Kartu Pekerja Jakarta', 'Guru Non PNS']
 
-// ⭐ STATE BARU: Loading swipe per item
-const loadingSwipe = ref({})
-
-// Computed: Filtered Rows
 const filteredRows = computed(() => {
   let result = [...antrianList.value]
   
@@ -754,18 +733,15 @@ const filteredRows = computed(() => {
   return result
 })
 
-// Computed: Paginated Rows
 const paginatedRows = computed(() => {
   const start = (currentPage.value - 1) * perPage.value
   return filteredRows.value.slice(start, start + perPage.value)
 })
 
-// Computed: Pagination Meta
 const totalPages = computed(() => Math.ceil(filteredRows.value.length / perPage.value) || 1)
 const paginationStart = computed(() => filteredRows.value.length > 0 ? (currentPage.value - 1) * perPage.value + 1 : 0)
 const paginationEnd = computed(() => Math.min(currentPage.value * perPage.value, filteredRows.value.length))
 
-// Computed: Visible Page Numbers
 const visiblePages = computed(() => {
   const pages = []
   const maxVisible = 5
@@ -782,21 +758,19 @@ const visiblePages = computed(() => {
   return pages
 })
 
-// Stats
+// ⭐ UPDATE: Stats dengan 'terverifikasi' bukan 'sudah_swipe'
 const stats = computed(() => ({
   total: filteredRows.value.length,
   menunggu: filteredRows.value.filter(d => d.status === 'menunggu').length,
-  sudah_swipe: filteredRows.value.filter(d => d.status === 'sudah swipe').length,
+  terverifikasi: filteredRows.value.filter(d => d.status === 'terverifikasi').length,
   ditolak: filteredRows.value.filter(d => d.status === 'ditolak').length,
   selesai: filteredRows.value.filter(d => d.status === 'selesai').length
 }))
 
-// Watch: Reset page when filter change
 watch([filterBulan, filterTahun, filterKartu, searchKKATM], () => {
   currentPage.value = 1
 })
 
-// Modal States
 const showPilihKuota = ref(false)
 const kuotaList = ref([])
 const loadingKuotaList = ref(false)
@@ -806,14 +780,12 @@ const showTolakItem = ref(null)
 const alasanTolak = ref('')
 const alasanLainnya = ref('')
 
-// ⭐ EDIT MODAL STATES
 const editItem = ref(null)
 const editForm = ref({})
 const editErrors = ref({})
 const editError = ref('')
 const editLoading = ref(false)
 
-// ⭐ OPEN EDIT MODAL
 const openEditModal = (item) => {
   editItem.value = { ...item }
   editForm.value = {
@@ -832,7 +804,6 @@ const openEditModal = (item) => {
   editError.value = ''
 }
 
-// ⭐ CLOSE EDIT MODAL
 const closeEditModal = () => {
   editItem.value = null
   editForm.value = {}
@@ -841,7 +812,6 @@ const closeEditModal = () => {
   editLoading.value = false
 }
 
-// ⭐ VALIDATE EDIT FORM
 const validateEditForm = () => {
   const errors = {}
   
@@ -887,7 +857,6 @@ const validateEditForm = () => {
   return Object.keys(errors).length === 0
 }
 
-// ⭐ SUBMIT EDIT
 const submitEdit = async () => {
   if (!validateEditForm()) return
   
@@ -908,7 +877,6 @@ const submitEdit = async () => {
       alamat: editForm.value.alamat
     })
     
-    // Refresh data
     await fetchAntrian()
     closeEditModal()
     
@@ -920,7 +888,6 @@ const submitEdit = async () => {
   }
 }
 
-// Export Excel
 const downloadExcel = () => {
   const data = filteredRows.value.map(item => ({
     'No Antrian': `#${item.nomor_antrian?.toString().padStart(3, '0')}`,
@@ -993,6 +960,7 @@ const downloadExcel = () => {
     [''],
     ['Status Breakdown'],
     ['Menunggu', filteredRows.value.filter(d => d.status === 'menunggu').length],
+    ['Terverifikasi', filteredRows.value.filter(d => d.status === 'terverifikasi').length],
     ['Selesai', filteredRows.value.filter(d => d.status === 'selesai').length],
     ['Ditolak', filteredRows.value.filter(d => d.status === 'ditolak').length],
     ['Batal', filteredRows.value.filter(d => d.status === 'batal').length],
@@ -1018,10 +986,10 @@ const resetFilters = () => {
   currentPage.value = 1
 }
 
-// Helpers
+// ⭐ UPDATE: Status class dengan 'terverifikasi'
 const statusClass = (status) => ({
   'menunggu': 'bg-yellow-100 text-yellow-700',
-  'sudah swipe': 'bg-blue-100 text-blue-700', // ⭐ TAMBAH INI
+  'terverifikasi': 'bg-blue-100 text-blue-700',
   'ditolak': 'bg-red-100 text-red-700',
   'selesai': 'bg-green-100 text-green-700',
   'batal': 'bg-gray-100 text-gray-500'
@@ -1041,7 +1009,6 @@ const formatMonthYearFromItem = (item) => {
   return formatMonthYear(item.kuota_bulanan.bulan, item.kuota_bulanan.tahun)
 }
 
-// Actions
 const fetchAntrian = async () => {
   try {
     const [antrian, kuota] = await Promise.all([
@@ -1052,25 +1019,6 @@ const fetchAntrian = async () => {
     kuotaAktif.value = kuota
   } catch (err) {
     console.error('Fetch error:', err)
-  }
-}
-
-// ⭐ FUNGSI BARU: Update status swipe kartu
-const updateStatusSwipe = async (id) => {
-  // console.log('=== SWIPE BUTTON CLICKED ===', id) // ⭐ TAMBAH INI
-  // alert('Button clicked! ID: ' + id) // ⭐ TAMBAH INI
-  
-  loadingSwipe.value[id] = true
-  
-  try {
-    // console.log('Sending status: sudah swipe') // ⭐ TAMBAH INI
-    await updateStatusAntrian(id, 'sudah swipe')
-    await fetchAntrian()
-  } catch (err) {
-    console.error('Error in updateStatusSwipe:', err) // ⭐ TAMBAH INI
-    alert('Gagal update status: ' + err.message)
-  } finally {
-    loadingSwipe.value[id] = false
   }
 }
 
@@ -1123,6 +1071,7 @@ const downloadQR = async (item) => {
   }
 }
 
+// ⭐ UPDATE: Status 'terverifikasi' bukan 'sudah swipe'
 const updateStatus = async (id, status) => {
   try {
     await updateStatusAntrian(id, status)

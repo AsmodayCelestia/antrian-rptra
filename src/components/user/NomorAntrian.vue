@@ -29,7 +29,7 @@
         <p class="text-xs text-gray-500 mt-2">Scan saat pengambilan</p>
       </div>
       
-      <!-- ⭐ INFO PEMBERKASAN BARU -->
+      <!-- INFO PEMBERKASAN -->
       <div class="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4 mb-6 text-left">
         <div class="flex items-start gap-3">
           <span class="text-2xl">📸</span>
@@ -43,7 +43,7 @@
         </div>
       </div>
 
-      <!-- ⭐ PERINGATAN -->
+      <!-- PERINGATAN -->
       <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
         <p class="text-red-700 text-sm font-medium">
           ⚠️ Petugas/Pengelola Berhak Membatalkan Jika Tidak Sesuai Syarat Ketentuan Yang Berlaku
@@ -110,20 +110,21 @@ const loading = ref(true)
 const error = ref('')
 const qrCanvas = ref(null)
 
+// ⭐ UPDATE: Status class dengan 'terverifikasi' bukan 'sudah swipe'
 const statusClass = computed(() => ({
   'menunggu': 'bg-yellow-100 text-yellow-700',
-  'sudah swipe': 'bg-blue-100 text-blue-700', 
-  'ditolak': 'bg-blue-100 text-blue-700',
-  'selesai': 'bg-green-100 text-green-700'
+  'terverifikasi': 'bg-blue-100 text-blue-700',
+  'ditolak': 'bg-red-100 text-red-700',
+  'selesai': 'bg-green-100 text-green-700',
+  'batal': 'bg-gray-100 text-gray-500'
 }[antrian.value?.status] || 'bg-gray-100'))
 
-// ⭐ FUNGSI BARU: Hitung H+1 untuk pemberkasan
 const hariPemberkasan = computed(() => {
   if (!antrian.value?.created_at) return '-'
   
   const createdDate = new Date(antrian.value.created_at)
   const nextDay = new Date(createdDate)
-  nextDay.setDate(createdDate.getDate() + 1) // H+1
+  nextDay.setDate(createdDate.getDate() + 1)
   
   const hariIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
   const bulanIndo = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']

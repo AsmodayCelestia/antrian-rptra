@@ -27,11 +27,10 @@
       </div>
     </div>
 
-    <!-- Manual Input - UPDATED: Cari pakai KK/ATM -->
+    <!-- Manual Input -->
     <div v-if="!scannedData" class="bg-white rounded-xl shadow-lg p-6 mb-6">
       <h3 class="font-semibold mb-4 text-gray-700">Cari Manual</h3>
       <div class="space-y-3">
-        <!-- Pilih Tipe Pencarian -->
         <div>
           <label class="text-sm text-gray-600">Cari Berdasarkan</label>
           <select v-model="searchType" class="w-full border rounded-lg px-4 py-2 mt-1 bg-white">
@@ -40,7 +39,6 @@
           </select>
         </div>
 
-        <!-- Input Nomor -->
         <div>
           <label class="text-sm text-gray-600">
             {{ searchType === 'kk' ? 'Nomor KK' : 'Nomor ATM' }}
@@ -52,12 +50,9 @@
             class="w-full border rounded-lg px-4 py-2 mt-1 font-mono"
             maxlength="20"
           >
-          <p class="text-xs text-gray-500 mt-1">
-            Masukkan minimal 4 digit terakhir
-          </p>
+          <p class="text-xs text-gray-500 mt-1">Masukkan minimal 4 digit terakhir</p>
         </div>
 
-        <!-- Pilih Kuota/Bulan -->
         <div>
           <label class="text-sm text-gray-600">Bulan/Kuota</label>
           <select v-model="manualKuota" class="w-full border rounded-lg px-4 py-2 mt-1 bg-white">
@@ -76,11 +71,9 @@
         </button>
       </div>
 
-      <!-- Hasil Pencarian (Multiple Results) -->
+      <!-- Hasil Pencarian -->
       <div v-if="searchResults.length > 0" class="mt-4 border-t pt-4">
-        <p class="text-sm font-medium text-gray-700 mb-2">
-          {{ searchResults.length }} data ditemukan:
-        </p>
+        <p class="text-sm font-medium text-gray-700 mb-2">{{ searchResults.length }} data ditemukan:</p>
         <div class="space-y-2 max-h-60 overflow-y-auto">
           <div 
             v-for="item in searchResults" 
@@ -112,7 +105,6 @@
         </button>
       </div>
 
-      <!-- Tidak Ketemu -->
       <div v-if="searchPerformed && searchResults.length === 0 && !loading" class="mt-4 text-center text-gray-500">
         <p>❌ Data tidak ditemukan</p>
         <p class="text-xs">Coba periksa nomor KK/ATM atau pilih bulan lain</p>
@@ -125,9 +117,9 @@
       <div 
         :class="{
           'bg-yellow-500': scannedData.status === 'menunggu',
+          'bg-blue-500': scannedData.status === 'terverifikasi',
           'bg-green-500': scannedData.status === 'selesai',
-          'bg-red-500': scannedData.status === 'ditolak',
-          'bg-gray-500': scannedData.status === 'batal'
+          'bg-red-500': scannedData.status === 'batal' || scannedData.status === 'ditolak'
         }" 
         class="text-white p-4 text-center"
       >
@@ -172,26 +164,21 @@
           </div>
         </div>
 
-        <!-- Alasan Ditolak (kalo status ditolak) -->
+        <!-- Alasan Ditolak -->
         <div v-if="scannedData.status === 'ditolak'" class="bg-red-50 border border-red-200 rounded-lg p-4">
           <p class="text-red-700 font-semibold mb-1">❌ Ditolak</p>
           <p class="text-red-600 text-sm">{{ scannedData.alasan_ditolak || 'Tidak ada keterangan' }}</p>
         </div>
 
-        <!-- Action Buttons -->
+        <!-- ⭐ FLOW BARU: Action Buttons -->
         <div class="pt-4 border-t space-y-3">
-          <!-- Belum diproses (menunggu) -->
+          
+          <!-- STEP 1: Status menunggu → Verifikasi atau Tolak -->
           <template v-if="scannedData.status === 'menunggu'">
-            <!-- ⭐ TOMBOL BARU: Sudah Swipe Kartu -->
-            <button 
-              @click="updateStatusSwipe"
-              :disabled="verifyingSwipe"
-              class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-3 rounded-xl font-bold shadow-lg transform active:scale-95 transition-all flex items-center justify-center gap-2"
-            >
-              <span v-if="verifyingSwipe" class="animate-spin text-sm">⏳</span>
-              <span v-else>💳</span>
-              {{ verifyingSwipe ? 'Memproses...' : 'SUDAH SWIPE KARTU' }}
-            </button>
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+              <p class="text-sm text-yellow-800 font-medium">⚠️ Verifikasi Data Warga</p>
+              <p class="text-xs text-yellow-600 mt-1">Cek kesesuaian data sebelum verifikasi</p>
+            </div>
             
             <div class="grid grid-cols-2 gap-3">
               <button 
@@ -201,37 +188,48 @@
                 ❌ TOLAK
               </button>
               <button 
-                @click="verifikasiPengambilan"
+                @click="verifikasiData"
                 :disabled="verifying"
                 class="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white py-3 rounded-xl font-bold shadow-lg transform active:scale-95 transition-all"
               >
                 {{ verifying ? '...' : '✓ VERIFIKASI' }}
               </button>
             </div>
-            <p class="text-center text-xs text-gray-500">
-              Pilih "TOLAK" jika data tidak valid / warga tidak berhak
-            </p>
           </template>
 
-          <!-- Sudah selesai -->
+          <!-- STEP 2: Status terverifikasi → Tunggu swipe, scan ulang untuk selesai -->
+          <template v-else-if="scannedData.status === 'terverifikasi'">
+            <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 text-center mb-4">
+              <div class="text-4xl mb-2">✅</div>
+              <p class="font-bold text-blue-800">Data Terverifikasi</p>
+              <p class="text-sm text-blue-600 mt-1">Silakan arahkan warga untuk swipe kartu di mesin</p>
+            </div>
+            
+            <div class="space-y-2">
+              <p class="text-center text-sm text-gray-600">Setelah warga swipe kartu:</p>
+              <button 
+                @click="selesaikanPengambilan"
+                :disabled="verifying"
+                class="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white py-3 rounded-xl font-bold shadow-lg transform active:scale-95 transition-all"
+              >
+                {{ verifying ? '...' : '✓ SELESAI (Sudah Swipe)' }}
+              </button>
+            </div>
+          </template>
+
+          <!-- STEP 3: Status selesai -->
           <div v-else-if="scannedData.status === 'selesai'" class="bg-green-50 border-2 border-green-200 rounded-xl p-4 text-center">
-            <div class="text-4xl mb-2">✅</div>
-            <p class="font-bold text-green-800">Sudah Diambil</p>
+            <div class="text-4xl mb-2">✓</div>
+            <p class="font-bold text-green-800">Pengambilan Selesai</p>
             <p class="text-sm text-green-600 mt-1">
               {{ formatDate(scannedData.selesai_at) }}
             </p>
           </div>
 
-          <!-- Sudah ditolak -->
-          <div v-else-if="scannedData.status === 'ditolak'" class="bg-red-50 border-2 border-red-200 rounded-xl p-4 text-center">
+          <!-- Ditolak/Batal -->
+          <div v-else-if="scannedData.status === 'ditolak'" class="bg-red-50 border-2 border-red-200 rounded-xl p-4 text-center text-red-500">
             <div class="text-4xl mb-2">🚫</div>
-            <p class="font-bold text-red-800">Pendaftaran Ditolak</p>
-          </div>
-
-          <!-- Batal -->
-          <div v-else class="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 text-center text-gray-500">
-            <div class="text-4xl mb-2">⛔</div>
-            <p class="font-bold">Antrian Dibatalkan</p>
+            <p class="font-bold">Pendaftaran Ditolak</p>
           </div>
 
           <button 
@@ -320,7 +318,6 @@ const scannedData = ref(null)
 const error = ref(null)
 const loading = ref(false)
 const verifying = ref(false)
-const verifyingSwipe = ref(false)
 
 const searchType = ref('kk')
 const manualNomor = ref('')
@@ -353,7 +350,7 @@ const formatDate = (timestamp) => {
 
 const statusClass = (status) => ({
   'menunggu': 'bg-yellow-100 text-yellow-700',
-  'sudah swipe': 'bg-blue-100 text-blue-700', // ⭐ TAMBAH INI
+  'terverifikasi': 'bg-blue-100 text-blue-700',
   'ditolak': 'bg-red-100 text-red-700',
   'selesai': 'bg-green-100 text-green-700',
   'batal': 'bg-gray-100 text-gray-500'
@@ -529,23 +526,24 @@ const handleScanResult = async (qrText) => {
   }
 }
 
-// ⭐ FUNGSI BARU: Update status swipe kartu
-const updateStatusSwipe = async () => {
+// ⭐ FLOW BARU: Verifikasi data (menunggu → terverifikasi)
+const verifikasiData = async () => {
   if (!scannedData.value) return
   
-  verifyingSwipe.value = true
+  verifying.value = true
   
   try {
-    await updateStatusAntrian(scannedData.value.id, 'sudah swipe') // ⭐ UBAH INI
+    await updateStatusAntrian(scannedData.value.id, 'terverifikasi')
     await fetchAntrianData(scannedData.value.nomor_antrian, scannedData.value.kuota_id)
   } catch (err) {
-    alert('Gagal update status: ' + err.message)
+    alert('Gagal verifikasi: ' + err.message)
   } finally {
-    verifyingSwipe.value = false
+    verifying.value = false
   }
 }
 
-const verifikasiPengambilan = async () => {
+// ⭐ FLOW BARU: Selesaikan pengambilan (terverifikasi → selesai)
+const selesaikanPengambilan = async () => {
   if (!scannedData.value) return
   
   verifying.value = true
@@ -554,7 +552,7 @@ const verifikasiPengambilan = async () => {
     await updateStatusAntrian(scannedData.value.id, 'selesai')
     await fetchAntrianData(scannedData.value.nomor_antrian, scannedData.value.kuota_id)
   } catch (err) {
-    alert('Gagal verifikasi: ' + err.message)
+    alert('Gagal menyelesaikan: ' + err.message)
   } finally {
     verifying.value = false
   }

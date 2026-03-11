@@ -1,11 +1,10 @@
 import { canViewAllRptra, user } from './useAuth'
 import { supabase, getJakartaTime } from '../lib/supabase'
 
-// ⭐ GENERATE NOMOR ANTRIAN DENGAN AUTO CLOSE
+// GENERATE NOMOR ANTRIAN (User)
 export const generateNomorAntrian = async (formData) => {
   const { kuota_id, rptra_id } = formData
 
-  // Ambil data kuota dan lock row untuk prevent race condition
   const { data: kuota, error: kuotaError } = await supabase
     .from('kuota_bulanan')
     .select('*')
@@ -14,15 +13,13 @@ export const generateNomorAntrian = async (formData) => {
   
   if (kuotaError || !kuota) throw new Error('Kuota tidak ditemukan')
   
-  // ⭐ CEK WAKTU TUTUP (AUTO CLOSE) - FIX: Database UTC tanpa Z, parse sebagai UTC lalu convert
+  // Cek waktu tutup
   if (kuota.target_close_time) {
-    // Database simpan UTC tanpa Z, kita append Z supaya parse sebagai UTC
     const closeTimeStr = kuota.target_close_time + 'Z'
     const closeTime = new Date(closeTimeStr).getTime()
     const now = Date.now()
     
     if (now > closeTime) {
-      // Auto close kuota
       await supabase
         .from('kuota_bulanan')
         .update({ dibuka: false })
@@ -31,10 +28,8 @@ export const generateNomorAntrian = async (formData) => {
     }
   }
   
-  // Cek apakah kuota masih open secara manual
   if (!kuota.dibuka) throw new Error('Pendaftaran sudah ditutup')
 
-  // Cek apakah sudah penuh
   const { count, error: countError } = await supabase
     .from('antrian')
     .select('*', { count: 'exact', head: true })
@@ -45,16 +40,13 @@ export const generateNomorAntrian = async (formData) => {
   const currentCount = count || 0
   
   if (currentCount >= kuota.kuota) {
-    // Auto close kuota
     await supabase
       .from('kuota_bulanan')
       .update({ dibuka: false })
       .eq('id', kuota_id)
-    
     throw new Error('Maaf, kuota sudah penuh')
   }
 
-  // Ambil nomor antrian terakhir
   const { data: last } = await supabase
     .from('antrian')
     .select('nomor_antrian')
@@ -65,7 +57,6 @@ export const generateNomorAntrian = async (formData) => {
 
   const nextNomor = last ? last.nomor_antrian + 1 : 1
 
-  // Insert antrian
   const { data, error } = await supabase
     .from('antrian')
     .insert({
@@ -89,9 +80,7 @@ export const generateNomorAntrian = async (formData) => {
 
   if (error) throw error
   
-  // ⭐ CEK USER TERAKHIR - AUTO CLOSE
   if (nextNomor >= kuota.kuota) {
-    // Ini user terakhir, auto close kuota
     await supabase
       .from('kuota_bulanan')
       .update({ dibuka: false })
@@ -114,12 +103,12 @@ export const checkKKExists = async (nomor_kk, kuota_id) => {
   return data
 }
 
-// Update status dengan alasan
+// ⭐ UPDATE: Hapus 'sudah swipe', tambah 'terverifikasi'
 export const updateStatusAntrian = async (id, status, alasan = null) => {
   const updateData = { status }
   
   if (status === 'selesai') updateData.selesai_at = new Date().toISOString()
-  if (status === 'sudah swipe') updateData.swipe_at = new Date().toISOString() // ⭐ UBAH INI
+  if (status === 'terverifikasi') updateData.verified_at = new Date().toISOString()
   if (status === 'ditolak' && alasan) updateData.alasan_ditolak = alasan
   
   const { data, error } = await supabase
@@ -133,7 +122,6 @@ export const updateStatusAntrian = async (id, status, alasan = null) => {
   return data
 }
 
-// ⭐ UPDATED: Include nomor_kk dan nomor_atm untuk search
 export const getAllAntrian = async () => {
   let query = supabase
     .from('antrian')
@@ -177,6 +165,7 @@ export const getKuotaAktif = async (rptraId) => {
   return data
 }
 
+// ⭐ UPDATE: Ganti 'sudah_swipe' jadi 'terverifikasi'
 export const getStats = async () => {
   let query = supabase
     .from('antrian')
@@ -192,7 +181,7 @@ export const getStats = async () => {
   return {
     total: data?.length || 0,
     menunggu: data?.filter(a => a.status === 'menunggu').length || 0,
-    sudah_swipe: data?.filter(a => a.status === 'sudah swipe').length || 0, // ⭐ TAMBAH INI
+    terverifikasi: data?.filter(a => a.status === 'terverifikasi').length || 0,
     ditolak: data?.filter(a => a.status === 'ditolak').length || 0,
     selesai: data?.filter(a => a.status === 'selesai').length || 0
   }
@@ -224,12 +213,12 @@ export const validateQR = async (nomor, kuota_id) => {
   
   return { 
     valid: true, 
-    message: data.status === 'menunggu' ? 'Antrian valid - Menunggu verifikasi' : 'Antrian sedang diproses',
+    message: data.status === 'menunggu' ? 'Antrian valid - Menunggu verifikasi' : 'Antrian terverifikasi - Siap swipe',
     data 
   }
 }
 
-// ⭐ FUNGSI BARU: Generate nomor untuk admin (bypass waktu, tetap cek kuota)
+// Generate nomor untuk admin (bypass waktu)
 export const generateNomorAntrianAdmin = async (formData) => {
   const { kuota_id, rptra_id } = formData
 
@@ -239,11 +228,8 @@ export const generateNomorAntrianAdmin = async (formData) => {
     .eq('id', kuota_id)
     .single()
   
-  if (kuotaError || !kuota) throw new Error('Kuota tidak ditemukan')
+   if (kuotaError || !kuota) throw new Error('Kuota tidak ditemukan')
   
-  // ⭐ BYPASS WAKTU: Admin bisa daftar kapanpun, tapi tetap cek kuota
-  
-  // Cek apakah sudah penuh
   const { count, error: countError } = await supabase
     .from('antrian')
     .select('*', { count: 'exact', head: true })
@@ -257,7 +243,6 @@ export const generateNomorAntrianAdmin = async (formData) => {
     throw new Error('Maaf, kuota sudah penuh. Silakan edit kuota terlebih dahulu.')
   }
 
-  // Ambil nomor antrian terakhir
   const { data: last } = await supabase
     .from('antrian')
     .select('nomor_antrian')
@@ -268,7 +253,6 @@ export const generateNomorAntrianAdmin = async (formData) => {
 
   const nextNomor = last ? last.nomor_antrian + 1 : 1
 
-  // Insert antrian
   const { data, error } = await supabase
     .from('antrian')
     .insert({
@@ -292,7 +276,6 @@ export const generateNomorAntrianAdmin = async (formData) => {
 
   if (error) throw error
   
-  // Auto close kalau penuh
   if (nextNomor >= kuota.kuota) {
     await supabase
       .from('kuota_bulanan')
@@ -303,7 +286,7 @@ export const generateNomorAntrianAdmin = async (formData) => {
   return data
 }
 
-// ⭐ FUNGSI BARU: Update data antrian (untuk edit)
+// Update data antrian (untuk edit)
 export const updateAntrian = async (id, updateData) => {
   const { data, error } = await supabase
     .from('antrian')
