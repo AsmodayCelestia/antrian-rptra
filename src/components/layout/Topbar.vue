@@ -9,7 +9,7 @@
       </svg>
     </button>
     
-    <h1 class="ml-4 text-xl font-bold truncate">Antrian Sembako - RPTRA</h1>
+    <h1 class="ml-4 text-xl font-bold truncate">Program Pangan Bersubsidi - RPTRA</h1>
     
     <div class="ml-auto flex items-center gap-4">
       <span v-if="user" class="text-sm hidden sm:block">{{ user.email }}</span>
