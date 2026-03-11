@@ -24,7 +24,7 @@
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
       <div class="bg-white rounded-xl shadow p-4 border-l-4 border-blue-500">
         <p class="text-gray-500 text-sm">Total Antrian</p>
         <p class="text-2xl font-bold text-gray-800">{{ stats.total }}</p>
@@ -33,6 +33,10 @@
         <p class="text-gray-500 text-sm">Menunggu</p>
         <p class="text-2xl font-bold text-yellow-600">{{ stats.menunggu }}</p>
       </div>
+        <div class="bg-white rounded-xl shadow p-4 border-l-4 border-blue-500">
+          <p class="text-gray-500 text-sm">Sudah Swipe</p>
+          <p class="text-2xl font-bold text-blue-600">{{ stats.sudah_swipe }}</p>
+        </div>
       <div class="bg-white rounded-xl shadow p-4 border-l-4 border-red-500">
         <p class="text-gray-500 text-sm">Ditolak</p>
         <p class="text-2xl font-bold text-red-600">{{ stats.ditolak }}</p>
@@ -203,8 +207,20 @@
                     ✏️
                   </button>
                   
+                  <!-- ⭐ TOMBOL BARU: Sudah Swipe Kartu - Hanya admin & moderator, status menunggu -->
+                  <button 
+                    v-if="canEditAntrian && item.status === 'menunggu'"
+                    @click="updateStatusSwipe(item.id)"
+                    :disabled="loadingSwipe[item.id]"
+                    class="bg-blue-100 text-blue-600 hover:bg-blue-200 disabled:bg-blue-50 px-2 py-1 rounded text-xs"
+                    title="Sudah Swipe Kartu"
+                  >
+                    {{ loadingSwipe[item.id] ? '⏳' : '💳' }}
+                  </button>
+                  
                   <!-- Verifikasi/Tolak - Hanya admin & moderator -->
-                  <template v-if="canEditAntrian && item.status === 'menunggu'">
+                  <template v-if="canEditAntrian && (item.status === 'menunggu' || item.status === 'sudah swipe')">
+
                     <button 
                       @click="updateStatus(item.id, 'selesai')"
                       class="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700"
@@ -627,12 +643,14 @@
           <div class="flex gap-3 pt-4 border-t">
             <button @click="downloadQR(detailItem)" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2">📥 Download QR</button>
             
-            <template v-if="canEditAntrian && detailItem.status === 'menunggu'">
+            <!-- ⭐ ADMIN/MODERATOR: Verifikasi & Tolak untuk menunggu atau sudah swipe -->
+            <template v-if="canEditAntrian && (detailItem.status === 'menunggu' || detailItem.status === 'sudah swipe')">
               <button @click="updateStatus(detailItem.id, 'selesai'); closeDetail()" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium">✓ Verifikasi</button>
               <button @click="showTolakModal(detailItem); closeDetail()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium">✕ Tolak</button>
             </template>
             
-            <template v-else-if="detailItem.status === 'menunggu'">
+            <!-- ⭐ STAFF: Ga bisa verifikasi, suruh ke QR Scanner -->
+            <template v-else-if="detailItem.status === 'menunggu' || detailItem.status === 'sudah swipe'">
               <div class="flex-1 bg-yellow-50 border border-yellow-200 text-yellow-700 py-2 rounded-lg text-center text-sm flex items-center justify-center gap-2">
                 <span>🔒</span> Verifikasi via QR Scanner
               </div>
@@ -679,6 +697,7 @@ import * as XLSX from 'xlsx'
 import { user, isModerator, isAdmin, isStaff, canEditAntrian } from '../../composables/useAuth'
 import { getAllAntrian, updateStatusAntrian, getKuotaAktif, updateAntrian } from '../../composables/useAntrian'
 import { getAllKuota } from '../../composables/useKuota'
+import { formatWIB } from '../../lib/supabase'
 import QRCode from 'qrcode'
 
 const router = useRouter()
@@ -705,6 +724,9 @@ const tahunOptions = computed(() => {
   return [current - 1, current, current + 1]
 })
 const kartuOptions = ['KJP', 'PJLP', 'Kartu Anak Jakarta', 'Kartu Lansia Jakarta', 'Kartu Disabilitas', 'PKK', 'Daswisma', 'Kartu Pekerja Jakarta', 'Guru Non PNS']
+
+// ⭐ STATE BARU: Loading swipe per item
+const loadingSwipe = ref({})
 
 // Computed: Filtered Rows
 const filteredRows = computed(() => {
@@ -764,6 +786,7 @@ const visiblePages = computed(() => {
 const stats = computed(() => ({
   total: filteredRows.value.length,
   menunggu: filteredRows.value.filter(d => d.status === 'menunggu').length,
+  sudah_swipe: filteredRows.value.filter(d => d.status === 'sudah swipe').length,
   ditolak: filteredRows.value.filter(d => d.status === 'ditolak').length,
   selesai: filteredRows.value.filter(d => d.status === 'selesai').length
 }))
@@ -998,6 +1021,7 @@ const resetFilters = () => {
 // Helpers
 const statusClass = (status) => ({
   'menunggu': 'bg-yellow-100 text-yellow-700',
+  'sudah swipe': 'bg-blue-100 text-blue-700', // ⭐ TAMBAH INI
   'ditolak': 'bg-red-100 text-red-700',
   'selesai': 'bg-green-100 text-green-700',
   'batal': 'bg-gray-100 text-gray-500'
@@ -1005,12 +1029,7 @@ const statusClass = (status) => ({
 
 const formatTime = (timestamp) => {
   if (!timestamp) return '-'
-  const date = new Date(timestamp)
-  const wibTime = new Date(date.getTime() + (7 * 60 * 60 * 1000))
-  return wibTime.toLocaleString('id-ID', {
-    day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', timeZone: 'UTC'
-  }) + ' WIB'
+  return formatWIB(timestamp)
 }
 
 const formatMonthYear = (bulan, tahun) => {
@@ -1033,6 +1052,25 @@ const fetchAntrian = async () => {
     kuotaAktif.value = kuota
   } catch (err) {
     console.error('Fetch error:', err)
+  }
+}
+
+// ⭐ FUNGSI BARU: Update status swipe kartu
+const updateStatusSwipe = async (id) => {
+  // console.log('=== SWIPE BUTTON CLICKED ===', id) // ⭐ TAMBAH INI
+  // alert('Button clicked! ID: ' + id) // ⭐ TAMBAH INI
+  
+  loadingSwipe.value[id] = true
+  
+  try {
+    // console.log('Sending status: sudah swipe') // ⭐ TAMBAH INI
+    await updateStatusAntrian(id, 'sudah swipe')
+    await fetchAntrian()
+  } catch (err) {
+    console.error('Error in updateStatusSwipe:', err) // ⭐ TAMBAH INI
+    alert('Gagal update status: ' + err.message)
+  } finally {
+    loadingSwipe.value[id] = false
   }
 }
 

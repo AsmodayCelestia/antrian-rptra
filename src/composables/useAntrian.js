@@ -119,6 +119,7 @@ export const updateStatusAntrian = async (id, status, alasan = null) => {
   const updateData = { status }
   
   if (status === 'selesai') updateData.selesai_at = new Date().toISOString()
+  if (status === 'sudah swipe') updateData.swipe_at = new Date().toISOString() // ⭐ UBAH INI
   if (status === 'ditolak' && alasan) updateData.alasan_ditolak = alasan
   
   const { data, error } = await supabase
@@ -191,6 +192,7 @@ export const getStats = async () => {
   return {
     total: data?.length || 0,
     menunggu: data?.filter(a => a.status === 'menunggu').length || 0,
+    sudah_swipe: data?.filter(a => a.status === 'sudah swipe').length || 0, // ⭐ TAMBAH INI
     ditolak: data?.filter(a => a.status === 'ditolak').length || 0,
     selesai: data?.filter(a => a.status === 'selesai').length || 0
   }

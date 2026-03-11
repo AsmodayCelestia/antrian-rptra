@@ -182,6 +182,17 @@
         <div class="pt-4 border-t space-y-3">
           <!-- Belum diproses (menunggu) -->
           <template v-if="scannedData.status === 'menunggu'">
+            <!-- ⭐ TOMBOL BARU: Sudah Swipe Kartu -->
+            <button 
+              @click="updateStatusSwipe"
+              :disabled="verifyingSwipe"
+              class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-3 rounded-xl font-bold shadow-lg transform active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              <span v-if="verifyingSwipe" class="animate-spin text-sm">⏳</span>
+              <span v-else>💳</span>
+              {{ verifyingSwipe ? 'Memproses...' : 'SUDAH SWIPE KARTU' }}
+            </button>
+            
             <div class="grid grid-cols-2 gap-3">
               <button 
                 @click="showTolakModal = true"
@@ -309,19 +320,17 @@ const scannedData = ref(null)
 const error = ref(null)
 const loading = ref(false)
 const verifying = ref(false)
+const verifyingSwipe = ref(false)
 
-// ⭐ UPDATED: State untuk pencarian manual
-const searchType = ref('kk') // 'kk' atau 'atm'
+const searchType = ref('kk')
 const manualNomor = ref('')
 const manualKuota = ref('')
 const kuotaOptions = ref([])
 
-// ⭐ NEW: State untuk hasil pencarian multiple
 const searchResults = ref([])
 const selectedResult = ref(null)
 const searchPerformed = ref(false)
 
-// Modal Tolak
 const showTolakModal = ref(false)
 const alasanTolak = ref('')
 const alasanLainnya = ref('')
@@ -344,12 +353,12 @@ const formatDate = (timestamp) => {
 
 const statusClass = (status) => ({
   'menunggu': 'bg-yellow-100 text-yellow-700',
+  'sudah swipe': 'bg-blue-100 text-blue-700', // ⭐ TAMBAH INI
   'ditolak': 'bg-red-100 text-red-700',
   'selesai': 'bg-green-100 text-green-700',
   'batal': 'bg-gray-100 text-gray-500'
 }[status])
 
-// ⭐ NEW: Cari berdasarkan KK atau ATM (partial match)
 const cariManual = async () => {
   if (!manualNomor.value || manualNomor.value.length < 4 || !manualKuota.value) return
   
@@ -362,17 +371,14 @@ const cariManual = async () => {
   try {
     const searchQuery = manualNomor.value.trim()
     
-    // Query berdasarkan tipe pencarian
     let query = supabase
       .from('antrian')
       .select('*, rptra(nama), kuota_bulanan(bulan, tahun)')
       .eq('kuota_id', manualKuota.value)
     
     if (searchType.value === 'kk') {
-      // Cari nomor KK (partial match, case insensitive)
       query = query.ilike('nomor_kk', `%${searchQuery}%`)
     } else {
-      // Cari nomor ATM (partial match, case insensitive)
       query = query.ilike('nomor_atm', `%${searchQuery}%`)
     }
     
@@ -383,7 +389,6 @@ const cariManual = async () => {
     searchResults.value = data || []
     searchPerformed.value = true
     
-    // ⭐ Jika hanya 1 hasil, langsung pilih
     if (searchResults.value.length === 1) {
       selectedResult.value = searchResults.value[0]
       konfirmasiPilihan()
@@ -397,16 +402,13 @@ const cariManual = async () => {
   }
 }
 
-// ⭐ NEW: Pilih hasil dari list
 const pilihHasil = (item) => {
   selectedResult.value = item
 }
 
-// ⭐ NEW: Konfirmasi pilihan dan load detail
 const konfirmasiPilihan = () => {
   if (!selectedResult.value) return
   scannedData.value = selectedResult.value
-  // Clear search state
   searchResults.value = []
   selectedResult.value = null
   manualNomor.value = ''
@@ -524,6 +526,22 @@ const handleScanResult = async (qrText) => {
     console.error('QR Error:', err)
     error.value = 'QR Code tidak valid: ' + err.message
     await stopScan()
+  }
+}
+
+// ⭐ FUNGSI BARU: Update status swipe kartu
+const updateStatusSwipe = async () => {
+  if (!scannedData.value) return
+  
+  verifyingSwipe.value = true
+  
+  try {
+    await updateStatusAntrian(scannedData.value.id, 'sudah swipe') // ⭐ UBAH INI
+    await fetchAntrianData(scannedData.value.nomor_antrian, scannedData.value.kuota_id)
+  } catch (err) {
+    alert('Gagal update status: ' + err.message)
+  } finally {
+    verifyingSwipe.value = false
   }
 }
 

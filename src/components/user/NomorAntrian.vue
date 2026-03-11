@@ -112,6 +112,7 @@ const qrCanvas = ref(null)
 
 const statusClass = computed(() => ({
   'menunggu': 'bg-yellow-100 text-yellow-700',
+  'sudah swipe': 'bg-blue-100 text-blue-700', 
   'ditolak': 'bg-blue-100 text-blue-700',
   'selesai': 'bg-green-100 text-green-700'
 }[antrian.value?.status] || 'bg-gray-100'))
