@@ -4,18 +4,19 @@ import { checkSession, user, canManageKuota, canViewDashboard } from '../composa
 const routes = [
   {
     path: '/',
-    component: () => import('../pages/UserView.vue'),
-    children: [
-      {
-        path: '',
-        component: () => import('../components/user/FormPendaftaran.vue')
-      },
-      {
-        path: 'nomor-antrian/:id',
-        component: () => import('../components/user/NomorAntrian.vue'),
-        props: true
-      }
-    ]
+    component: () => import('../pages/UserView.vue'), // ⭐ Welcome + QR Scanner
+    name: 'Home'
+  },
+  {
+    path: '/daftar/:kuotaId',
+    name: 'DaftarKuota',
+    component: () => import('../pages/DaftarPage.vue'), // ⭐ Form pendaftaran (existing)
+    props: true
+  },
+  {
+    path: '/nomor-antrian/:id',
+    component: () => import('../components/user/NomorAntrian.vue'),
+    props: true
   },
   {
     path: '/daftar/:kuotaId',
