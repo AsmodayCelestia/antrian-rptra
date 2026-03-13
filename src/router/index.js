@@ -19,12 +19,6 @@ const routes = [
     props: true
   },
   {
-    path: '/daftar/:kuotaId',
-    name: 'DaftarKuota',
-    component: () => import('../pages/DaftarPage.vue'),
-    props: true
-  },
-  {
     path: '/login',
     name: 'Login',
     component: () => import('../components/admin/LoginForm.vue'),
