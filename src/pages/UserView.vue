@@ -34,7 +34,7 @@
             📱 Buka Kamera & Scan QR
           </button>
           <p class="text-gray-500 text-sm mt-4">
-            Arahkan kamera ke QR code pendaftaran yang dibagikan admin
+            Arahkan kamera ke QR code pendaftaran yang dibagikan petugas
           </p>
         </div>
 

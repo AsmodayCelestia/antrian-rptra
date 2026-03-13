@@ -33,7 +33,6 @@
         <p class="text-gray-500 text-sm">Menunggu</p>
         <p class="text-2xl font-bold text-yellow-600">{{ stats.menunggu }}</p>
       </div>
-      <!-- ⭐ GANTI: 'Sudah Swipe' jadi 'Terverifikasi' -->
       <div class="bg-white rounded-xl shadow p-4 border-l-4 border-blue-500">
         <p class="text-gray-500 text-sm">Terverifikasi</p>
         <p class="text-2xl font-bold text-blue-600">{{ stats.terverifikasi }}</p>
@@ -50,17 +49,31 @@
 
     <!-- Pendaftaran Manual - Hanya admin & moderator -->
     <div v-if="canEditAntrian" class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border border-purple-200 p-4 mb-6">
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h3 class="font-bold text-gray-800">Pendaftaran Manual</h3>
           <p class="text-sm text-gray-600">Tambah pendaftar untuk warga yang membutuhkan bantuan</p>
         </div>
-        <button 
-          @click="openPilihKuotaModal"
-          class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2"
-        >
-          <span>➕</span> Tambah Manual
-        </button>
+        <div class="flex flex-wrap gap-2">
+          <button 
+            @click="openPilihKuotaModal"
+            class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2"
+          >
+            <span>➕</span> Tambah Manual
+          </button>
+          <button 
+            @click="openCSVModal"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2"
+          >
+            <span>📤</span> Upload CSV
+          </button>
+          <button 
+            @click="downloadCSVTemplate"
+            class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2"
+          >
+            <span>📥</span> Template
+          </button>
+        </div>
       </div>
     </div>
 
@@ -125,6 +138,7 @@
             Reset
           </button>
           <button 
+          v-if="canEditAntrian"
             @click="downloadExcel"
             class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
           >
@@ -209,7 +223,7 @@
                     ✏️
                   </button>
                   
-                  <!-- ⭐ FLOW BARU: Hanya Verifikasi & Tolak untuk status menunggu -->
+                  <!-- Verifikasi & Tolak untuk status menunggu -->
                   <template v-if="canEditAntrian && item.status === 'menunggu'">
                     <button 
                       @click="updateStatus(item.id, 'terverifikasi')"
@@ -314,8 +328,8 @@
       </div>
     </div>
 
-    <!-- Modal: Pilih Kuota -->
-    <div v-if="showPilihKuota && canEditAntrian" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+    <!-- Modal: Pilih Kuota (Untuk Manual) -->
+    <div v-if="showPilihKuota && !csvMode" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-md">
         <div class="bg-purple-600 text-white p-4 rounded-t-xl flex justify-between items-center">
           <h3 class="text-xl font-bold">Pilih Periode Pendaftaran</h3>
@@ -386,6 +400,274 @@
               Lanjutkan
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Pilih Kuota (Untuk CSV) -->
+    <div v-if="showPilihKuota && csvMode" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-md">
+        <div class="bg-blue-600 text-white p-4 rounded-t-xl flex justify-between items-center">
+          <h3 class="text-xl font-bold">📤 Upload CSV - Pilih Kuota</h3>
+          <button @click="closePilihKuota" class="text-white hover:bg-blue-700 p-2 rounded-lg">✕</button>
+        </div>
+
+        <div class="p-6">
+          <div v-if="loadingKuotaList" class="text-center py-8">
+            <div class="animate-spin text-2xl mb-2">⏳</div>
+            <p class="text-gray-500 text-sm">Memuat kuota...</p>
+          </div>
+
+          <div v-else-if="kuotaList.length === 0" class="text-center py-8 text-gray-500">
+            <div class="text-4xl mb-2">📭</div>
+            <p>Belum ada kuota tersedia</p>
+          </div>
+
+          <div v-else class="space-y-3 max-h-96 overflow-y-auto">
+            <div 
+              v-for="k in kuotaList" 
+              :key="k.id"
+              @click="pilihKuota(k)"
+              class="border-2 rounded-lg p-4 cursor-pointer transition-all hover:border-blue-500 hover:bg-blue-50"
+              :class="selectedKuota?.id === k.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'"
+            >
+              <div class="flex justify-between items-start">
+                <div>
+                  <h4 class="font-bold text-gray-800">{{ formatMonthYear(k.bulan, k.tahun) }}</h4>
+                  <p class="text-sm text-gray-500">{{ k.rptra?.nama }}</p>
+                </div>
+                <span 
+                  class="px-2 py-1 rounded text-xs font-medium"
+                  :class="k.dibuka ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'"
+                >
+                  {{ k.dibuka ? 'Dibuka' : 'Ditutup' }}
+                </span>
+              </div>
+              
+              <div class="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
+                <div class="bg-gray-100 rounded p-2">
+                  <p class="text-gray-500 text-xs">Kuota</p>
+                  <p class="font-bold">{{ k.kuota }}</p>
+                </div>
+                <div class="bg-blue-50 rounded p-2">
+                  <p class="text-gray-500 text-xs">Terdaftar</p>
+                  <p class="font-bold text-blue-600">{{ k.terdaftar || 0 }}</p>
+                </div>
+                <div 
+                  class="rounded p-2"
+                  :class="(k.kuota - (k.terdaftar || 0)) <= 0 ? 'bg-red-100' : 'bg-green-100'"
+                >
+                  <p class="text-gray-500 text-xs">Sisa</p>
+                  <p :class="(k.kuota - (k.terdaftar || 0)) <= 0 ? 'text-red-600' : 'text-green-600'">
+                    {{ k.kuota - (k.terdaftar || 0) }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 space-y-3">
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+              <p class="font-semibold mb-1">📋 Ketentuan CSV:</p>
+              <ul class="list-disc list-inside text-xs space-y-1">
+                <li>Maksimal 100 row per upload</li>
+                <li>Format: email,kartu_pemanfaat,alamat,rt,rw,nomor_kk,nomor_atm,nama_pemilik_atm,whatsapp</li>
+                <li>Kelurahan otomatis: Pademangan Timur</li>
+                <li>Duplikat KK akan di-skip</li>
+              </ul>
+            </div>
+            
+            <div class="flex gap-3">
+              <button @click="closePilihKuota" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 rounded-lg">Batal</button>
+              <button 
+                @click="lanjutKeCSVUpload"
+                :disabled="!selectedKuota || (selectedKuota.kuota - (selectedKuota.terdaftar || 0)) <= 0"
+                class="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white py-2 rounded-lg font-medium"
+              >
+                Lanjut Upload
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: CSV Upload & Preview -->
+    <div v-if="showCSVUploadModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div class="bg-blue-600 text-white p-4 flex justify-between items-center">
+          <div>
+            <h3 class="text-xl font-bold">📤 Upload File CSV</h3>
+            <p class="text-blue-100 text-sm">{{ formatMonthYear(selectedKuota?.bulan, selectedKuota?.tahun) }} - Sisa Kuota: {{ selectedKuota?.kuota - (selectedKuota?.terdaftar || 0) }}</p>
+          </div>
+          <button @click="closeCSVUploadModal" class="text-white hover:bg-blue-700 p-2 rounded-lg">✕</button>
+        </div>
+
+        <div class="p-6 overflow-y-auto flex-1">
+          <!-- File Input -->
+          <div v-if="!csvFile" class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-500 transition-colors">
+            <input 
+              type="file" 
+              accept=".csv" 
+              @change="handleCSVFileChange"
+              class="hidden" 
+              id="csvInput"
+            >
+            <label for="csvInput" class="cursor-pointer">
+              <div class="text-4xl mb-2">📁</div>
+              <p class="text-gray-700 font-medium">Klik untuk pilih file CSV</p>
+              <p class="text-gray-500 text-sm mt-1">atau drag & drop file di sini</p>
+              <p class="text-gray-400 text-xs mt-2">Maksimal 5MB, 100 row</p>
+            </label>
+          </div>
+
+          <!-- Preview Table -->
+          <div v-else-if="csvPreview.length > 0" class="space-y-4">
+            <div class="flex items-center justify-between">
+              <h4 class="font-bold text-gray-800">Preview Data (5 row pertama)</h4>
+              <button 
+                @click="csvFile = null; csvPreview = []"
+                class="text-red-600 hover:text-red-700 text-sm"
+              >
+                Ganti File
+              </button>
+            </div>
+
+            <div class="overflow-x-auto border rounded-lg">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-3 py-2 text-left">Row</th>
+                    <th class="px-3 py-2 text-left">Nama</th>
+                    <th class="px-3 py-2 text-left">KK</th>
+                    <th class="px-3 py-2 text-left">Kartu</th>
+                    <th class="px-3 py-2 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y">
+                  <tr v-for="item in csvPreview" :key="item.row" :class="!item.valid ? 'bg-red-50' : ''">
+                    <td class="px-3 py-2">{{ item.row }}</td>
+                    <td class="px-3 py-2">{{ item.data.nama_pemilik_atm || '-' }}</td>
+                    <td class="px-3 py-2 font-mono text-xs">{{ item.data.nomor_kk || '-' }}</td>
+                    <td class="px-3 py-2">{{ item.data.kartu_pemanfaat || '-' }}</td>
+                    <td class="px-3 py-2 text-center">
+                      <span v-if="item.valid" class="text-green-600 text-lg">✓</span>
+                      <span v-else class="text-red-600 text-lg">✕</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Validation Errors -->
+            <div v-if="csvPreview.some(p => !p.valid)" class="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p class="text-red-700 font-semibold text-sm mb-2">⚠️ Error ditemukan di preview:</p>
+              <ul class="text-xs text-red-600 space-y-1 max-h-32 overflow-y-auto">
+                <li v-for="item in csvPreview.filter(p => !p.valid)" :key="item.row">
+                  Row {{ item.row }}: {{ item.errors.join(', ') }}
+                </li>
+              </ul>
+              <p class="text-xs text-red-600 mt-2">Row dengan error akan di-skip saat upload.</p>
+            </div>
+
+            <div v-else class="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 text-sm">
+              ✅ Preview valid! Semua row akan diproses. Duplikat KK akan di-skip otomatis.
+            </div>
+          </div>
+        </div>
+
+        <div v-if="csvFile" class="p-4 border-t bg-gray-50 flex gap-3">
+          <button 
+            @click="closeCSVUploadModal"
+            class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 rounded-lg"
+          >
+            Batal
+          </button>
+          <button 
+            @click="submitCSVUpload"
+            :disabled="csvLoading"
+            class="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2"
+          >
+            <span v-if="csvLoading">⏳ Memproses...</span>
+            <span v-else>🚀 Upload Data</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: CSV Results -->
+    <div v-if="csvResults.total > 0" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div 
+          class="p-4 text-white flex justify-between items-center"
+          :class="csvResults.failed === 0 && csvResults.skipped === 0 ? 'bg-green-600' : csvResults.failed > 0 ? 'bg-red-600' : 'bg-yellow-600'"
+        >
+          <h3 class="text-xl font-bold">📊 Hasil Upload CSV</h3>
+          <button @click="closeCSVResultsModal" class="text-white hover:bg-black/20 p-2 rounded-lg">✕</button>
+        </div>
+
+        <div class="p-6 overflow-y-auto flex-1">
+          <!-- Summary Cards -->
+          <div class="grid grid-cols-4 gap-3 mb-6">
+            <div class="bg-blue-50 rounded-lg p-3 text-center">
+              <p class="text-2xl font-bold text-blue-600">{{ csvResults.total }}</p>
+              <p class="text-xs text-gray-600">Total</p>
+            </div>
+            <div class="bg-green-50 rounded-lg p-3 text-center">
+              <p class="text-2xl font-bold text-green-600">{{ csvResults.success }}</p>
+              <p class="text-xs text-gray-600">Sukses</p>
+            </div>
+            <div class="bg-yellow-50 rounded-lg p-3 text-center">
+              <p class="text-2xl font-bold text-yellow-600">{{ csvResults.skipped }}</p>
+              <p class="text-xs text-gray-600">Skip (Duplikat)</p>
+            </div>
+            <div class="bg-red-50 rounded-lg p-3 text-center">
+              <p class="text-2xl font-bold text-red-600">{{ csvResults.failed }}</p>
+              <p class="text-xs text-gray-600">Gagal</p>
+            </div>
+          </div>
+
+          <!-- Details List -->
+          <div v-if="csvResults.details.length > 0" class="space-y-2">
+            <h4 class="font-bold text-gray-800 mb-2">Detail per Row:</h4>
+            <div class="max-h-64 overflow-y-auto space-y-1">
+              <div 
+                v-for="detail in csvResults.details" 
+                :key="detail.row"
+                class="flex items-center gap-3 p-2 rounded text-sm"
+                :class="{
+                  'bg-green-50': detail.status === 'success',
+                  'bg-yellow-50': detail.status === 'skipped',
+                  'bg-red-50': detail.status === 'error'
+                }"
+              >
+                <span class="text-lg">
+                  {{ detail.status === 'success' ? '✅' : detail.status === 'skipped' ? '⏭️' : '❌' }}
+                </span>
+                <div class="flex-1">
+                  <p class="font-medium">
+                    Row {{ detail.row }} - {{ detail.data?.nama_pemilik_atm || 'Unknown' }}
+                  </p>
+                  <p class="text-xs text-gray-600">{{ detail.message }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 border-t bg-gray-50 flex gap-3">
+          <button 
+            @click="downloadCSVReport"
+            class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium"
+          >
+            📥 Download Report
+          </button>
+          <button 
+            @click="closeCSVResultsModal"
+            class="flex-1 bg-gray-800 hover:bg-gray-900 text-white py-2 rounded-lg font-medium"
+          >
+            Tutup
+          </button>
         </div>
       </div>
     </div>
@@ -623,7 +905,7 @@
           <div class="flex gap-3 pt-4 border-t">
             <button @click="downloadQR(detailItem)" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2">📥 Download QR</button>
             
-            <!-- ⭐ FLOW BARU: Verifikasi & Tolak untuk menunggu -->
+            <!-- Verifikasi & Tolak untuk menunggu -->
             <template v-if="canEditAntrian && detailItem.status === 'menunggu'">
               <button @click="updateStatus(detailItem.id, 'terverifikasi'); closeDetail()" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium">✓ Verifikasi</button>
               <button @click="showTolakModal(detailItem); closeDetail()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium">✕ Tolak</button>
@@ -685,6 +967,7 @@ import { user, isModerator, isAdmin, isStaff, canEditAntrian } from '../../compo
 import { getAllAntrian, updateStatusAntrian, getKuotaAktif, updateAntrian } from '../../composables/useAntrian'
 import { getAllKuota } from '../../composables/useKuota'
 import { formatWIB } from '../../lib/supabase'
+import useCSVUpload from '../../composables/useCSVUpload'
 import QRCode from 'qrcode'
 
 const router = useRouter()
@@ -758,7 +1041,6 @@ const visiblePages = computed(() => {
   return pages
 })
 
-// ⭐ UPDATE: Stats dengan 'terverifikasi' bukan 'sudah_swipe'
 const stats = computed(() => ({
   total: filteredRows.value.length,
   menunggu: filteredRows.value.filter(d => d.status === 'menunggu').length,
@@ -785,6 +1067,23 @@ const editForm = ref({})
 const editErrors = ref({})
 const editError = ref('')
 const editLoading = ref(false)
+
+// CSV Upload State
+const csvMode = ref(false)
+const showCSVUploadModal = ref(false)
+const csvFile = ref(null)
+const csvPreview = ref([])
+
+const {
+  loading: csvLoading,
+  progress: csvProgress,
+  currentRow: csvCurrentRow,
+  results: csvResults,
+  processCSV,
+  downloadTemplate,
+  resetResults,
+  validateRow
+} = useCSVUpload()
 
 const openEditModal = (item) => {
   editItem.value = { ...item }
@@ -986,7 +1285,6 @@ const resetFilters = () => {
   currentPage.value = 1
 }
 
-// ⭐ UPDATE: Status class dengan 'terverifikasi'
 const statusClass = (status) => ({
   'menunggu': 'bg-yellow-100 text-yellow-700',
   'terverifikasi': 'bg-blue-100 text-blue-700',
@@ -1023,6 +1321,7 @@ const fetchAntrian = async () => {
 }
 
 const openPilihKuotaModal = async () => {
+  csvMode.value = false
   showPilihKuota.value = true
   loadingKuotaList.value = true
   selectedKuota.value = null
@@ -1042,16 +1341,192 @@ const openPilihKuotaModal = async () => {
   }
 }
 
+const openCSVModal = async () => {
+  csvMode.value = true
+  showPilihKuota.value = true
+  loadingKuotaList.value = true
+  selectedKuota.value = null
+  csvFile.value = null
+  csvPreview.value = []
+  resetResults()
+  
+  try {
+    const result = await getAllKuota(user.value?.rptra_id)
+    kuotaList.value = (result || []).sort((a, b) => {
+      const sisaA = a.kuota - (a.terdaftar || 0)
+      const sisaB = b.kuota - (b.terdaftar || 0)
+      if (sisaA > 0 && sisaB <= 0) return -1
+      if (sisaA <= 0 && sisaB > 0) return 1
+      return new Date(b.created_at) - new Date(a.created_at)
+    })
+  } catch (err) {
+    alert('Gagal memuat kuota')
+  } finally {
+    loadingKuotaList.value = false
+  }
+}
+
 const closePilihKuota = () => {
   showPilihKuota.value = false
   selectedKuota.value = null
+  csvMode.value = false
 }
 
 const pilihKuota = (k) => { selectedKuota.value = k }
 
 const lanjutKeForm = () => {
   if (!selectedKuota.value) return
+  showPilihKuota.value = false
   router.push(`/admin/didaftarkanmanualbyadmin/${selectedKuota.value.id}`)
+}
+
+const lanjutKeCSVUpload = () => {
+  if (!selectedKuota.value) return
+  showPilihKuota.value = false
+  showCSVUploadModal.value = true
+}
+
+const closeCSVUploadModal = () => {
+  showCSVUploadModal.value = false
+  csvFile.value = null
+  csvPreview.value = []
+  selectedKuota.value = null
+  csvMode.value = false
+}
+
+const closeCSVResultsModal = () => {
+  resetResults()
+  csvFile.value = null
+  csvPreview.value = []
+  selectedKuota.value = null
+  csvMode.value = false
+}
+
+const handleCSVFileChange = (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+  
+  if (file.size > 5 * 1024 * 1024) {
+    alert('File terlalu besar. Maksimal 5MB.')
+    event.target.value = ''
+    return
+  }
+  
+  if (!file.name.endsWith('.csv')) {
+    alert('File harus format CSV')
+    event.target.value = ''
+    return
+  }
+  
+  csvFile.value = file
+  
+  // Preview first 5 rows
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    try {
+      const text = e.target.result
+      const lines = text.trim().split('\n')
+      if (lines.length < 2) {
+        alert('CSV kosong atau tidak valid')
+        csvFile.value = null
+        return
+      }
+      
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''))
+      
+      csvPreview.value = lines.slice(1, 6).map((line, index) => {
+        // Handle quoted values with commas
+        const values = []
+        let current = ''
+        let inQuotes = false
+        
+        for (let char of line) {
+          if (char === '"') {
+            inQuotes = !inQuotes
+          } else if (char === ',' && !inQuotes) {
+            values.push(current.trim())
+            current = ''
+          } else {
+            current += char
+          }
+        }
+        values.push(current.trim())
+        
+        const rowData = {}
+        headers.forEach((h, i) => {
+          rowData[h] = values[i] ? values[i].replace(/"/g, '').trim() : ''
+        })
+        
+        const validation = validateRow(rowData, index)
+        return {
+          ...validation,
+          raw: rowData
+        }
+      })
+    } catch (err) {
+      console.error('Preview error:', err)
+      alert('Gagal membaca file CSV')
+      csvFile.value = null
+      csvPreview.value = []
+    }
+  }
+  reader.readAsText(file)
+}
+
+const submitCSVUpload = async () => {
+  if (!csvFile.value || !selectedKuota.value) return
+  
+  try {
+    await processCSV(csvFile.value, selectedKuota.value.id, user.value?.rptra_id)
+    await fetchAntrian() // Refresh data
+    showCSVUploadModal.value = false
+  } catch (err) {
+    alert('Error: ' + err.message)
+  }
+}
+
+const downloadCSVTemplate = () => {
+  downloadTemplate()
+}
+
+const downloadCSVReport = () => {
+  const reportData = csvResults.value.details.map(d => ({
+    'Row': d.row,
+    'Status': d.status === 'success' ? 'Sukses' : d.status === 'skipped' ? 'Skip (Duplikat)' : 'Gagal',
+    'Nama': d.data?.nama_pemilik_atm || '-',
+    'KK': d.data?.nomor_kk || '-',
+    'Kartu': d.data?.kartu_pemanfaat || '-',
+    'Keterangan': d.message
+  }))
+  
+  const summary = [
+    ['LAPORAN UPLOAD CSV'],
+    [''],
+    ['Periode', formatMonthYear(selectedKuota.value?.bulan, selectedKuota.value?.tahun)],
+    ['RPTRA', user.value?.rptra?.nama || '-'],
+    ['Waktu Upload', new Date().toLocaleString('id-ID')],
+    [''],
+    ['Ringkasan'],
+    ['Total Row', csvResults.value.total],
+    ['Sukses', csvResults.value.success],
+    ['Skip (Duplikat KK)', csvResults.value.skipped],
+    ['Gagal', csvResults.value.failed],
+    ['']
+  ]
+  
+  const ws = XLSX.utils.aoa_to_sheet([
+    ...summary,
+    ['Row', 'Status', 'Nama', 'KK', 'Kartu', 'Keterangan'],
+    ...reportData.map(r => [r.Row, r.Status, r.Nama, r.KK, r.Kartu, r.Keterangan])
+  ])
+  
+  ws['!cols'] = [{ wch: 8 }, { wch: 15 }, { wch: 25 }, { wch: 20 }, { wch: 20 }, { wch: 40 }]
+  
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Report Upload')
+  
+  const fileName = `Report_Upload_CSV_${new Date().getTime()}.xlsx`
+  XLSX.writeFile(wb, fileName)
 }
 
 const showDetail = (item) => { detailItem.value = { ...item } }
@@ -1071,7 +1546,6 @@ const downloadQR = async (item) => {
   }
 }
 
-// ⭐ UPDATE: Status 'terverifikasi' bukan 'sudah swipe'
 const updateStatus = async (id, status) => {
   try {
     await updateStatusAntrian(id, status)
