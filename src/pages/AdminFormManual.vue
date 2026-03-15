@@ -4,20 +4,64 @@
       <!-- Header -->
       <div class="bg-purple-600 text-white rounded-xl p-6 mb-6 text-center">
         <h1 class="text-2xl font-bold mb-2">Pendaftaran Manual</h1>
-        <p class="text-purple-100">Admin: {{ user?.nama }}</p>
-        <p class="font-medium text-lg">{{ formatMonthYear(kuota?.bulan, kuota?.tahun) }}</p>
-        <p class="text-sm text-purple-200 mt-1">Sisa Kuota: {{ sisaKuota }}</p>
+        <p class="text-purple-100 text-sm">Admin: {{ user?.nama }}</p>
+        <p class="text-purple-200 text-xs mt-1">{{ user?.rptra?.nama }}</p>
+        <div class="mt-4 pt-4 border-t border-purple-500">
+          <p class="font-medium text-lg">{{ formatMonthYear(kuota?.bulan, kuota?.tahun) }}</p>
+          <div class="flex justify-center gap-4 mt-2 text-sm">
+            <span>Kuota: <strong>{{ kuota?.kuota || 0 }}</strong></span>
+            <span>Terdaftar: <strong>{{ kuota?.terdaftar || 0 }}</strong></span>
+            <span :class="sisaKuota <= 5 ? 'text-yellow-300 font-bold' : 'text-purple-200'">
+              Sisa: <strong>{{ sisaKuota }}</strong>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alert Kuota Penuh -->
+      <div v-if="sisaKuota <= 0" class="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">⚠️</span>
+          <div>
+            <p class="font-bold text-red-700">Kuota Sudah Penuh!</p>
+            <p class="text-sm text-red-600">Silakan edit kuota terlebih dahulu untuk menambah slot.</p>
+          </div>
+        </div>
+        <button 
+          @click="router.push('/admin/kuota')"
+          class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg text-sm font-medium"
+        >
+          Edit Kuota
+        </button>
+      </div>
+
+      <!-- Loading -->
+      <div v-if="isLoading" class="bg-white rounded-xl shadow-lg p-8 text-center">
+        <div class="animate-spin text-3xl mb-4">⏳</div>
+        <p class="text-gray-600">Memuat data...</p>
+      </div>
+
+      <!-- Config Error -->
+      <div v-else-if="configError" class="bg-red-50 border border-red-200 rounded-xl p-6 mb-6">
+        <p class="text-red-700 font-semibold mb-2">❌ Gagal memuat konfigurasi</p>
+        <p class="text-red-600 text-sm">{{ configError }}</p>
+        <button @click="reloadConfig" class="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg text-sm">
+          Coba Lagi
+        </button>
       </div>
 
       <!-- Form -->
-      <div class="bg-white rounded-xl shadow-lg p-8">
-        <h2 class="text-xl font-bold text-gray-800 mb-6 text-center">Formulir Pendaftaran Warga</h2>
+      <div v-else class="bg-white rounded-xl shadow-lg p-8">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-xl font-bold text-gray-800">Formulir Pendaftaran Warga</h2>
+          <span class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">Admin Mode</span>
+        </div>
         
         <form @submit.prevent="handleSubmit" class="space-y-5">
           <!-- Email -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
-              Email <span class="text-red-500">*</span>
+              Email <span class="text-gray-400">(opsional)</span>
             </label>
             <input 
               v-model="form.email" 
@@ -32,7 +76,7 @@
             <p v-if="errors.email" class="text-red-500 text-xs mt-1">{{ errors.email }}</p>
           </div>
 
-          <!-- Kelurahan (Auto-lock) -->
+          <!-- Kelurahan (Auto-lock dari config) -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Kelurahan <span class="text-red-500">*</span>
@@ -43,10 +87,10 @@
               readonly
               class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
             >
-            <p class="text-gray-400 text-xs mt-1">Otomatis terisi sesuai lokasi RPTRA</p>
+            <p class="text-gray-400 text-xs mt-1">Otomatis terisi sesuai lokasi RPTRA: {{ rptraData?.nama }}</p>
           </div>
 
-          <!-- Kartu Pemanfaat -->
+          <!-- Kartu Pemanfaat (Dynamic dari config) -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Kartu Pemanfaat <span class="text-red-500">*</span>
@@ -62,20 +106,12 @@
               ]"
             >
               <option value="" disabled>Pilih kartu</option>
-              <option value="KJP">KJP</option>
-              <option value="PJLP">PJLP</option>
-              <option value="Kartu Anak Jakarta">Kartu Anak Jakarta</option>
-              <option value="Kartu Lansia Jakarta">Kartu Lansia Jakarta</option>
-              <option value="Kartu Disabilitas">Kartu Disabilitas</option>
-              <option value="PKK">PKK</option>
-              <option value="Daswisma">Daswisma</option>
-              <option value="Kartu Pekerja Jakarta">Kartu Pekerja Jakarta</option>
-              <option value="Guru Non PNS">Guru Non PNS</option>
+              <option v-for="k in validKartuList" :key="k" :value="k">{{ k }}</option>
             </select>
             <p v-if="errors.kartu_pemanfaat" class="text-red-500 text-xs mt-1">{{ errors.kartu_pemanfaat }}</p>
           </div>
 
-          <!-- Alamat dengan Validasi Conditional -->
+          <!-- Alamat dengan Validasi Dynamic -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Alamat Kartu Keluarga <span class="text-red-500">*</span>
@@ -90,18 +126,24 @@
                 'w-full px-4 py-2 border rounded-lg focus:ring-2 outline-none transition-all resize-none',
                 errors.alamat ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-purple-500'
               ]"
-              :placeholder="isPJLP ? 'Contoh: Jalan Sudirman No 1, Jakarta Pusat' : 'Contoh: Jalan Pademangan 2 Gang XX No 01'"
+              :placeholder="isPJLP ? `Contoh: Jl. Sudirman No 1, Jakarta` : `Contoh: Jl. ${jalanKhasExample} No 01`"
             ></textarea>
             <p v-if="errors.alamat" class="text-red-500 text-xs mt-1">{{ errors.alamat }}</p>
-            <p v-else-if="!isPJLP" class="text-gray-400 text-xs mt-1">Harus berada di wilayah Pademangan Timur</p>
-            <p v-else class="text-purple-600 text-xs mt-1">PJLP dapat mengisi alamat di luar Pademangan Timur</p>
+            <p v-else-if="!isPJLP" class="text-gray-400 text-xs mt-1">
+              Harus berada di wilayah {{ rptraConfig?.kelurahan }} 
+              <span v-if="jalanKhasList.length">(mengandung: {{ jalanKhasList.join(', ') }})</span>
+            </p>
+            <p v-else class="text-purple-600 text-xs mt-1">
+              PJLP dapat mengisi alamat di luar {{ rptraConfig?.kelurahan }}
+            </p>
           </div>
 
-          <!-- RT/RW -->
+          <!-- RT/RW (Dynamic range dari config) -->
           <div class="grid grid-cols-2 gap-5">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">
                 RT <span class="text-red-500">*</span>
+                <span v-if="rtRangeText" class="text-gray-400 text-xs font-normal">({{ rtRangeText }})</span>
               </label>
               <input 
                 v-model="form.rt" 
@@ -114,7 +156,7 @@
                   'w-full px-4 py-2 border rounded-lg focus:ring-2 outline-none transition-all',
                   errors.rt ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-purple-500'
                 ]"
-                placeholder="018"
+                placeholder="001"
               >
               <p v-if="errors.rt" class="text-red-500 text-xs mt-1">{{ errors.rt }}</p>
             </div>
@@ -122,6 +164,7 @@
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">
                 RW <span class="text-red-500">*</span>
+                <span v-if="rwRangeText" class="text-gray-400 text-xs font-normal">({{ rwRangeText }})</span>
               </label>
               <select 
                 v-model="form.rw" 
@@ -133,8 +176,8 @@
                 ]"
               >
                 <option value="" disabled>Pilih RW</option>
-                <option v-for="num in 12" :key="num" :value="formatRW(num)">
-                  {{ formatRW(num) }}
+                <option v-for="num in rwOptions" :key="num" :value="formatRWValue(num)">
+                  {{ formatRWValue(num) }}
                 </option>
               </select>
               <p v-if="errors.rw" class="text-red-500 text-xs mt-1">{{ errors.rw }}</p>
@@ -250,11 +293,20 @@
           <!-- Submit -->
           <button 
             type="submit" 
-            :disabled="loading"
+            :disabled="loading || isLoading || sisaKuota <= 0"
             class="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             <span v-if="loading" class="animate-spin">⏳</span>
-            <span>{{ loading ? 'Memproses...' : 'Daftarkan Warga' }}</span>
+            <span>{{ loading ? 'Memproses...' : sisaKuota <= 0 ? 'Kuota Penuh' : 'Daftarkan Warga' }}</span>
+          </button>
+
+          <!-- Back to Dashboard -->
+          <button 
+            type="button"
+            @click="router.push('/admin/dashboard')"
+            class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 rounded-lg transition-colors text-sm"
+          >
+            ← Kembali ke Dashboard
           </button>
         </form>
       </div>
@@ -263,33 +315,45 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { reactive, ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { generateNomorAntrianAdmin, checkKKExists } from '../composables/useAntrian'
 import { getKuotaById } from '../composables/useKuota'
 import { user } from '../composables/useAuth'
+import { useRPTRA, rptraConfig, rptraData } from '../composables/useRPTRA'
 import { supabase } from '../lib/supabase'
 
-const route = useRoute()
+const props = defineProps({
+  kuotaId: {
+    type: String,
+    required: true
+  }
+})
+
 const router = useRouter()
-const kuotaId = route.params.kuotaId
+
+const { 
+  loadConfig, 
+  validateAlamat, 
+  validateRT, 
+  validateRW, 
+  getValidKartu, 
+  getRWOptions, 
+  getJalanKhasList, 
+  isLoading, 
+  error: configError,
+  reloadConfig 
+} = useRPTRA()
 
 const kuota = ref(null)
 const loading = ref(false)
 const submitError = ref('')
-
 const kkExists = ref(false)
 const kkExistsData = ref(null)
 
-// Jalan khas Pademangan Timur (hanya untuk non-PJLP)
-const jalanKhasPademanganTimur = [
-  'pademangan',
-  'pesanggrahan'
-]
-
 const form = reactive({
   email: '',
-  kelurahan: 'Pademangan Timur',
+  kelurahan: '',
   kartu_pemanfaat: '',
   alamat: '',
   rt: '',
@@ -313,8 +377,37 @@ const errors = reactive({
   whatsapp: ''
 })
 
-// ⭐ COMPUTED: Cek apakah PJLP
+// Computed dari config
 const isPJLP = computed(() => form.kartu_pemanfaat === 'PJLP')
+
+const validKartuList = computed(() => {
+  return getValidKartu()
+})
+
+const rwOptions = computed(() => {
+  return getRWOptions()
+})
+
+const jalanKhasList = computed(() => {
+  return getJalanKhasList()
+})
+
+const jalanKhasExample = computed(() => {
+  const list = jalanKhasList.value
+  return list.length > 0 ? list[0].charAt(0).toUpperCase() + list[0].slice(1) : 'Unknown'
+})
+
+const rtRangeText = computed(() => {
+  const rules = rptraConfig.value?.alamat_rules
+  if (!rules?.rt_min && !rules?.rt_max) return ''
+  return `${rules.rt_min || 1}-${rules.rt_max || 999}`
+})
+
+const rwRangeText = computed(() => {
+  const rules = rptraConfig.value?.alamat_rules
+  if (!rules?.rw_min && !rules?.rw_max) return ''
+  return `${rules.rw_min || 1}-${rules.rw_max || 20}`
+})
 
 const sisaKuota = computed(() => {
   if (!kuota.value) return 0
@@ -323,11 +416,15 @@ const sisaKuota = computed(() => {
 
 const formatMonthYear = (bulan, tahun) => {
   const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
+  if (!bulan || !tahun) return '-'
   return `${months[bulan - 1]} ${tahun}`
 }
 
-const formatRW = (num) => {
-  return num.toString().padStart(3, '0')
+const formatRWValue = (num) => {
+  const rules = rptraConfig.value?.alamat_rules
+  const maxRW = rules?.rw_max || 12
+  const digits = maxRW.toString().length
+  return num.toString().padStart(digits, '0')
 }
 
 const formatRT = () => {
@@ -357,62 +454,59 @@ const sanitizeWhatsApp = () => {
   form.whatsapp = cleaned.slice(0, 15)
 }
 
-// ⭐ VALIDASI ALAMAT CONDITIONAL
-const validateAlamatPademangan = (alamat) => {
-  // PJLP bebas, gak perlu cek jalan khas
-  if (isPJLP.value) return true
-  
-  const lower = alamat.toLowerCase()
-  return jalanKhasPademanganTimur.some(jalan => lower.includes(jalan))
-}
-
-// ⭐ HANDLER: Saat kartu berubah, re-validate alamat kalo perlu
 const onKartuChange = () => {
-  // Reset error alamat karena rules berubah
   errors.alamat = ''
-  // Kalo user udah isi alamat, validate ulang
   if (form.alamat) {
     validateField('alamat')
   }
 }
 
+// Validators
 const validators = {
   email: (val) => {
-    if (!val) return ''
+    if (!val) return '' // Opsional
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     return emailRegex.test(val) ? '' : 'Format email tidak valid'
   },
   
   kelurahan: (val) => {
     if (!val) return 'Kelurahan wajib diisi'
-    if (val !== 'Pademangan Timur') return 'Kelurahan harus Pademangan Timur'
     return ''
   },
   
   kartu_pemanfaat: (val) => {
     if (!val) return 'Pilih kartu pemanfaat'
+    const validList = getValidKartu()
+    if (!validList.includes(val)) return 'Kartu tidak tersedia untuk RPTRA ini'
     return ''
   },
   
-  // ⭐ VALIDATOR ALAMAT CONDITIONAL
   alamat: (val) => {
     if (!val.trim()) return 'Alamat wajib diisi'
     if (val.length < 10) return 'Alamat terlalu pendek (min 10 karakter)'
-    if (!validateAlamatPademangan(val)) {
-      return 'Alamat harus berada di wilayah Pademangan Timur (mengandung kata: Pademangan/Pesanggrahan)'
-    }
+    
+    const result = validateAlamat(val, form.kartu_pemanfaat)
+    if (!result.valid) return result.error
+    
     return ''
   },
   
   rt: (val) => {
     if (!val) return 'RT wajib diisi'
     if (!/^\d{1,3}$/.test(val)) return 'RT hanya angka, max 3 digit'
+    
+    const result = validateRT(val)
+    if (!result.valid) return result.error
+    
     return ''
   },
   
   rw: (val) => {
     if (!val) return 'RW wajib dipilih'
-    if (!/^\d{3}$/.test(val)) return 'RW format harus 001-012'
+    
+    const result = validateRW(val)
+    if (!result.valid) return result.error
+    
     return ''
   },
   
@@ -466,26 +560,41 @@ const handleSubmit = async () => {
     return
   }
   
+  if (sisaKuota.value <= 0) {
+    submitError.value = 'Kuota sudah penuh'
+    return
+  }
+  
   loading.value = true
   
   try {
-    const checkData = await checkKKExists(form.nomor_kk, kuotaId)
+    const checkData = await checkKKExists(form.nomor_kk, props.kuotaId)
     
     if (checkData) {
       kkExists.value = true
       kkExistsData.value = checkData
-      submitError.value = `KK sudah terdaftar dengan nomor antrian #${checkData.nomor_antrian}`
+      submitError.value = `KK sudah terdaftar dengan nomor antrian #${checkData.nomor_antrian.toString().padStart(3, '0')}`
       loading.value = false
       return
     }
     
     const data = await generateNomorAntrianAdmin({
-      ...form,
-      kuota_id: kuotaId,
+      email: form.email || null,
+      kelurahan: form.kelurahan,
+      kartu_pemanfaat: form.kartu_pemanfaat,
+      alamat: form.alamat,
+      rt: form.rt,
+      rw: form.rw,
+      nomor_kk: form.nomor_kk,
+      nomor_atm: form.nomor_atm,
+      nama_pemilik_atm: form.nama_pemilik_atm,
+      whatsapp: form.whatsapp,
+      kuota_id: props.kuotaId,
       rptra_id: kuota.value.rptra_id
     })
     
-    router.push(`/nomor-antrian/${data.id}`)
+    // Redirect ke Dashboard setelah sukses
+    router.push('/admin/dashboard')
   } catch (err) {
     submitError.value = err.message || 'Terjadi kesalahan, coba lagi'
   } finally {
@@ -495,27 +604,33 @@ const handleSubmit = async () => {
 
 onMounted(async () => {
   try {
-    const data = await getKuotaById(kuotaId)
-    kuota.value = data
+    // Load kuota data
+    const data = await getKuotaById(props.kuotaId)
     
     if (!data) {
       submitError.value = 'Kuota tidak ditemukan'
       return
     }
     
-    // Cek sisa kuota
+    kuota.value = data
+    
+    // Load RPTRA config untuk validasi alamat, RW, dll
+    if (data.rptra_id) {
+      await loadConfig(data.rptra_id)
+      form.kelurahan = rptraConfig.value?.kelurahan || ''
+    }
+    
+    // Hitung sisa kuota
     const { count } = await supabase
       .from('antrian')
       .select('*', { count: 'exact', head: true })
-      .eq('kuota_id', kuotaId)
+      .eq('kuota_id', props.kuotaId)
     
     kuota.value.terdaftar = count || 0
     
-    if ((kuota.value.kuota - kuota.value.terdaftar) <= 0) {
-      submitError.value = 'Kuota sudah penuh. Silakan edit kuota terlebih dahulu.'
-    }
   } catch (err) {
-    submitError.value = 'Gagal memuat data kuota'
+    console.error('Init error:', err)
+    submitError.value = 'Gagal memuat data'
   }
 })
 </script>

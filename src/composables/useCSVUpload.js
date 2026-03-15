@@ -1,15 +1,21 @@
 import { ref } from 'vue'
 import { supabase } from '../lib/supabase'
 import { generateNomorAntrianAdmin, checkKKExists } from './useAntrian'
+import { rptraConfig } from './useRPTRA'
+import { user, canViewAllRptra, isModerator } from './useAuth'
 
-// Valid kartu pemanfaat enum
-const VALID_KARTU = [
-  'KJP', 'PJLP', 'Kartu Anak Jakarta', 'Kartu Lansia Jakarta',
-  'Kartu Disabilitas', 'PKK', 'Daswisma', 'Kartu Pekerja Jakarta', 'Guru Non PNS'
-]
+// Valid kartu pemanfaat enum - DYNAMIC DARI CONFIG
+const getValidKartuFromConfig = () => {
+  return rptraConfig.value?.kartu_valid || [
+    'KJP', 'PJLP', 'Kartu Anak Jakarta', 'Kartu Lansia Jakarta',
+    'Kartu Disabilitas', 'PKK', 'Daswisma', 'Kartu Pekerja Jakarta', 'Guru Non PNS'
+  ]
+}
 
-// Jalan khas Pademangan Timur (untuk validasi alamat non-PJLP)
-const JALAN_KHAS_PADEMANGAN = ['pademangan', 'pesanggrahan']
+// Jalan khas - DYNAMIC DARI CONFIG
+const getJalanKhasFromConfig = () => {
+  return rptraConfig.value?.alamat_rules?.jalan_khas || []
+}
 
 // Parse CSV text to array of objects
 export const parseCSV = (csvText) => {
@@ -59,10 +65,16 @@ export const parseCSV = (csvText) => {
   return rows
 }
 
-// Validate single row
+// Validate single row - DYNAMIC CONFIG
 export const validateRow = (row, index) => {
   const errors = []
   const warnings = []
+  
+  // GET DYNAMIC VALUES
+  const VALID_KARTU = getValidKartuFromConfig()
+  const JALAN_KHAS = getJalanKhasFromConfig()
+  const KELURAHAN = rptraConfig.value?.kelurahan || 'Unknown'
+  const PJLP_BEBAS = rptraConfig.value?.alamat_rules?.pjlp_bebas !== false
   
   // Email (optional)
   let email = row.email || ''
@@ -80,38 +92,46 @@ export const validateRow = (row, index) => {
   }
   
   const isPJLP = kartu === 'PJLP'
-  
+
   // Alamat (required)
   const alamat = row.alamat?.trim()
   if (!alamat) {
     errors.push('Alamat wajib diisi')
   } else if (alamat.length < 10) {
     errors.push('Alamat minimal 10 karakter')
-  } else if (!isPJLP) {
-    // Validasi jalan khas untuk non-PJLP
+  } else if (!isPJLP || !PJLP_BEBAS) {
+    // Validasi jalan khas untuk non-PJLP (atau kalau PJLP tidak bebas)
     const lowerAlamat = alamat.toLowerCase()
-    const hasJalanKhas = JALAN_KHAS_PADEMANGAN.some(j => lowerAlamat.includes(j))
-    if (!hasJalanKhas) {
-      errors.push('Alamat harus mengandung "Pademangan" atau "Pesanggrahan" (wajib untuk non-PJLP)')
+    const hasJalanKhas = JALAN_KHAS.some(j => lowerAlamat.includes(j.toLowerCase()))
+    if (!hasJalanKhas && JALAN_KHAS.length > 0) {
+      errors.push(`Alamat harus mengandung salah satu: ${JALAN_KHAS.join(', ')} (wajib untuk wilayah ${KELURAHAN})`)
     }
   }
-  
-  // RT (required, 1-3 digit)
+ 
+  // RT (required, 1-3 digit) - DYNAMIC RANGE
   const rt = row.rt?.trim().replace(/\D/g, '')
+  const rtRules = rptraConfig.value?.alamat_rules || {}
   if (!rt) {
     errors.push('RT wajib diisi')
   } else if (!/^\d{1,3}$/.test(rt)) {
     errors.push('RT hanya angka 1-3 digit')
+  } else if (rtRules.rt_min !== undefined) {
+    const rtNum = parseInt(rt)
+    if (rtNum < rtRules.rt_min || rtNum > rtRules.rt_max) {
+      errors.push(`RT harus antara ${rtRules.rt_min}-${rtRules.rt_max}`)
+    }
   }
   
-  // RW (required, 001-012)
+  // RW (required) - DYNAMIC RANGE
   const rw = row.rw?.trim().replace(/\D/g, '')
   if (!rw) {
     errors.push('RW wajib diisi')
   } else {
     const rwNum = parseInt(rw)
-    if (isNaN(rwNum) || rwNum < 1 || rwNum > 12) {
-      errors.push('RW harus 001-012')
+    const rwMin = rtRules.rw_min || 1
+    const rwMax = rtRules.rw_max || 12
+    if (isNaN(rwNum) || rwNum < rwMin || rwNum > rwMax) {
+      errors.push(`RW harus ${rwMin.toString().padStart(3, '0')}-${rwMax.toString().padStart(3, '0')}`)
     }
   }
   
@@ -165,7 +185,7 @@ export const validateRow = (row, index) => {
     warnings,
     data: {
       email: email || null,
-      kelurahan: 'Pademangan Timur', // Auto-fill
+      kelurahan: KELURAHAN, // DYNAMIC DARI CONFIG
       kartu_pemanfaat: kartu,
       alamat,
       rt,
@@ -178,7 +198,7 @@ export const validateRow = (row, index) => {
   }
 }
 
-// Process CSV upload
+// Process CSV upload - VERIFY RPTRA ACCESS
 export const useCSVUpload = () => {
   const loading = ref(false)
   const progress = ref(0)
@@ -204,6 +224,31 @@ export const useCSVUpload = () => {
   }
   
   const processCSV = async (file, kuotaId, rptraId) => {
+    // ⭐ FIX: Verify kuota belongs to user's RPTRA
+    if (!canViewAllRptra()) {
+      const effectiveRptraId = user.value?.rptra_id
+      if (!effectiveRptraId) {
+        throw new Error('RPTRA ID tidak ditemukan untuk user ini')
+      }
+      
+      // ⭐ FIX: Verify kuota belongs to this RPTRA
+      const { data: kuota, error: kuotaError } = await supabase
+        .from('kuota_bulanan')
+        .select('rptra_id')
+        .eq('id', kuotaId)
+        .single()
+      
+      if (kuotaError || !kuota) {
+        throw new Error('Kuota tidak ditemukan')
+      }
+      
+      if (kuota.rptra_id !== effectiveRptraId) {
+        throw new Error('Anda tidak memiliki akses ke kuota tersebut')
+      }
+      
+      rptraId = effectiveRptraId
+    }
+    
     loading.value = true
     resetResults()
     
@@ -245,8 +290,7 @@ export const useCSVUpload = () => {
         const result = validRows[i]
         currentRow.value = i + 1
         progress.value = Math.round((i / validRows.length) * 100)
-        
-        try {
+             try {
           // Check if KK already exists in database
           const existing = await checkKKExists(result.data.nomor_kk, kuotaId)
           
@@ -261,11 +305,11 @@ export const useCSVUpload = () => {
             continue
           }
           
-          // Insert to database
+          // Insert to database - PAKAI rptraId yang sudah diverifikasi
           await generateNomorAntrianAdmin({
             ...result.data,
             kuota_id: kuotaId,
-            rptra_id: rptraId
+            rptra_id: rptraId // PASTIKAN RPTRA_ID BENAR
           })
           
           results.value.success++
@@ -297,10 +341,15 @@ export const useCSVUpload = () => {
   }
   
   const downloadTemplate = () => {
+    // DYNAMIC HEADER BERDASARKAN CONFIG
     const headers = ['email', 'kartu_pemanfaat', 'alamat', 'rt', 'rw', 'nomor_kk', 'nomor_atm', 'nama_pemilik_atm', 'whatsapp']
+    const kelurahan = rptraConfig.value?.kelurahan || 'Pademangan Timur'
+    const jalanKhas = getJalanKhasFromConfig()
+    const exampleJalan = jalanKhas[0] || 'Pademangan'
+    
     const sample = [
-      'contoh@email.com,KJP,"Jl. Pademangan 2 Gang XX No 01",001,001,1234567890123456,1234567890123456,"Budi Santoso",081234567890',
-      ',PJLP,"Jl. Sudirman No 1, Jakarta Pusat",005,002,9876543210987654,9876543210987654,"Ani Wijaya",082345678901'
+      `contoh@email.com,KJP,"Jl. ${exampleJalan} 2 Gang XX No 01",001,001,1234567890123456,1234567890123456,"Budi Santoso",081234567890`,
+      `,PJLP,"Jl. Sudirman No 1, Jakarta Pusat",005,002,9876543210987654,9876543210987654,"Ani Wijaya",082345678901`
     ]
     
     const csvContent = [headers.join(','), ...sample].join('\n')
@@ -308,7 +357,7 @@ export const useCSVUpload = () => {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'template_pendaftaran.csv'
+    link.download = `template_pendaftaran_${kelurahan.toLowerCase().replace(/\s+/g, '_')}.csv`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)

@@ -970,6 +970,7 @@ import { formatWIB } from '../../lib/supabase'
 import useCSVUpload from '../../composables/useCSVUpload'
 import QRCode from 'qrcode'
 
+
 const router = useRouter()
 
 const antrianList = ref([])
@@ -1024,6 +1025,11 @@ const paginatedRows = computed(() => {
 const totalPages = computed(() => Math.ceil(filteredRows.value.length / perPage.value) || 1)
 const paginationStart = computed(() => filteredRows.value.length > 0 ? (currentPage.value - 1) * perPage.value + 1 : 0)
 const paginationEnd = computed(() => Math.min(currentPage.value * perPage.value, filteredRows.value.length))
+
+const verifyDetailAccess = (item) => {
+  if (isModerator.value) return true
+  return item.rptra_id === user.value?.rptra_id
+}
 
 const visiblePages = computed(() => {
   const pages = []
@@ -1529,7 +1535,13 @@ const downloadCSVReport = () => {
   XLSX.writeFile(wb, fileName)
 }
 
-const showDetail = (item) => { detailItem.value = { ...item } }
+const showDetail = (item) => {
+  // ⭐ FIX: Cek akses sebelum show detail
+  if (!verifyDetailAccess(item)) {
+    return // Silent fail
+  }
+  detailItem.value = { ...item }
+}
 const closeDetail = () => { detailItem.value = null }
 
 const downloadQR = async (item) => {

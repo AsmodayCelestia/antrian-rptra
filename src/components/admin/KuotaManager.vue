@@ -411,7 +411,11 @@ const fetchKuotaList = async () => {
   loading.value = true
   try {
     const result = await getAllKuota(user.value?.rptra_id)
-    kuotaList.value = result || []
+    
+    // ⭐ FIX: Force reactive update dengan spread
+    kuotaList.value = [...result]
+    
+    console.log('DEBUG kuotaList:', kuotaList.value)
   } catch (err) {
     console.error('Error fetching kuota:', err)
     alert('Gagal memuat data kuota: ' + err.message)
@@ -441,17 +445,24 @@ const closeCreateModal = () => {
 const submitCreate = async () => {
   checkingExists.value = true
   try {
+    // ⭐ HAPUS checkKuotaExists dengan rptra_id, pindah ke useKuota
+    // atau biarin aja untuk cek duplikat
+    
     const exists = await checkKuotaExists(user.value.rptra_id, form.value.bulan, form.value.tahun)
     if (exists) {
       alert(`Kuota untuk ${formatMonthYear(form.value.bulan, form.value.tahun)} sudah ada!`)
       return
     }
 
+    // ⭐ FIX: Jangan include rptra_id di sini, biar useKuota yang handle
     const kuotaData = {
-      ...form.value,
-      rptra_id: user.value.rptra_id,
+      bulan: form.value.bulan,
+      tahun: form.value.tahun,
+      kuota: form.value.kuota,
+      dibuka: form.value.dibuka,
       target_open_time: form.value.target_open_time ? fromDateTimeLocal(form.value.target_open_time) : null,
       target_close_time: form.value.target_close_time ? fromDateTimeLocal(form.value.target_close_time) : null
+      // ⭐ HAPUS: rptra_id: user.value.rptra_id
     }
 
     const newKuota = await createKuota(kuotaData)

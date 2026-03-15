@@ -170,7 +170,7 @@
           <p class="text-red-600 text-sm">{{ scannedData.alasan_ditolak || 'Tidak ada keterangan' }}</p>
         </div>
 
-        <!-- ⭐ FLOW BARU: Action Buttons -->
+        <!-- ⭐ FLOW: Action Buttons -->
         <div class="pt-4 border-t space-y-3">
           
           <!-- STEP 1: Status menunggu → Verifikasi atau Tolak -->
@@ -306,9 +306,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { Html5Qrcode } from 'html5-qrcode'
-import { updateStatusAntrian } from '../../composables/useAntrian'
+import { updateStatusAntrian, validateQR } from '../../composables/useAntrian'
 import { getAllKuota } from '../../composables/useKuota'
-import { user } from '../../composables/useAuth'
+import { user, isModerator } from '../../composables/useAuth'
 import { supabase } from '../../lib/supabase'
 
 const qrReaderRef = ref(null)
@@ -356,6 +356,12 @@ const statusClass = (status) => ({
   'batal': 'bg-gray-100 text-gray-500'
 }[status])
 
+// Cek akses RPTRA untuk hasil search
+const verifyAccess = (item) => {
+  if (isModerator.value) return true
+  return item.rptra_id === user.value?.rptra_id
+}
+
 const cariManual = async () => {
   if (!manualNomor.value || manualNomor.value.length < 4 || !manualKuota.value) return
   
@@ -368,10 +374,16 @@ const cariManual = async () => {
   try {
     const searchQuery = manualNomor.value.trim()
     
+    // Build query dengan RPTRA filter
     let query = supabase
       .from('antrian')
       .select('*, rptra(nama), kuota_bulanan(bulan, tahun)')
       .eq('kuota_id', manualKuota.value)
+    
+    // Filter by RPTRA untuk non-moderator
+    if (!isModerator.value) {
+      query = query.eq('rptra_id', user.value?.rptra_id)
+    }
     
     if (searchType.value === 'kk') {
       query = query.ilike('nomor_kk', `%${searchQuery}%`)
@@ -383,7 +395,8 @@ const cariManual = async () => {
     
     if (supaError) throw supaError
     
-    searchResults.value = data || []
+    // Double check access (defensive)
+    searchResults.value = (data || []).filter(item => verifyAccess(item))
     searchPerformed.value = true
     
     if (searchResults.value.length === 1) {
@@ -411,26 +424,28 @@ const konfirmasiPilihan = () => {
   manualNomor.value = ''
 }
 
+// ⭐ FIX: Fetch antrian data dengan handle status final (selesai/ditolak/batal)
 const fetchAntrianData = async (nomor, kuota_id) => {
   loading.value = true
   error.value = null
   
   try {
-    const { data, error: supaError } = await supabase
-      .from('antrian')
-      .select('*, rptra(nama), kuota_bulanan(bulan, tahun)')
-      .eq('nomor_antrian', parseInt(nomor, 10))
-      .eq('kuota_id', kuota_id)
-      .maybeSingle()
+    const result = await validateQR(parseInt(nomor, 10), kuota_id)
     
-    if (supaError) throw supaError
+    // ⭐ FIX: Untuk status final (selesai/ditolak/batal), tetap tampilkan data tanpa error
+    // Meskipun valid=false karena sudah selesai, tetap show data
+    if (result.data && ['selesai', 'ditolak', 'batal'].includes(result.data.status)) {
+      scannedData.value = result.data
+      return true
+    }
     
-    if (!data) {
-      error.value = 'Data antrian tidak ditemukan'
+    // Untuk status menunggu/terverifikasi, harus valid=true
+    if (!result.valid) {
+      error.value = result.message
       return false
     }
     
-    scannedData.value = data
+    scannedData.value = result.data
     return true
   } catch (err) {
     console.error('Fetch error:', err)
@@ -517,7 +532,13 @@ const handleScanResult = async (qrText) => {
     }
     
     await stopScan()
-    await fetchAntrianData(nomor, kuota_id)
+    
+    // validateQR sudah cek RPTRA, kalau bukan akan return "tidak ditemukan"
+    const success = await fetchAntrianData(nomor, kuota_id)
+    
+    if (!success && !error.value) {
+      error.value = 'Nomor antrian tidak ditemukan'
+    }
     
   } catch (err) {
     console.error('QR Error:', err)
@@ -526,7 +547,7 @@ const handleScanResult = async (qrText) => {
   }
 }
 
-// ⭐ FLOW BARU: Verifikasi data (menunggu → terverifikasi)
+// FLOW: Verifikasi data (menunggu → terverifikasi)
 const verifikasiData = async () => {
   if (!scannedData.value) return
   
@@ -542,7 +563,7 @@ const verifikasiData = async () => {
   }
 }
 
-// ⭐ FLOW BARU: Selesaikan pengambilan (terverifikasi → selesai)
+// FLOW: Selesaikan pengambilan (terverifikasi → selesai)
 const selesaikanPengambilan = async () => {
   if (!scannedData.value) return
   
@@ -550,6 +571,7 @@ const selesaikanPengambilan = async () => {
   
   try {
     await updateStatusAntrian(scannedData.value.id, 'selesai')
+    // ⭐ FIX: fetchAntrianData sekarang handle status selesai dengan benar
     await fetchAntrianData(scannedData.value.nomor_antrian, scannedData.value.kuota_id)
   } catch (err) {
     alert('Gagal menyelesaikan: ' + err.message)
@@ -572,6 +594,7 @@ const tolakPendaftaran = async () => {
     showTolakModal.value = false
     alasanTolak.value = ''
     alasanLainnya.value = ''
+    // ⭐ FIX: fetchAntrianData sekarang handle status ditolak dengan benar
     await fetchAntrianData(scannedData.value.nomor_antrian, scannedData.value.kuota_id)
   } catch (err) {
     alert('Gagal menolak: ' + err.message)
@@ -592,7 +615,9 @@ const resetScan = () => {
 }
 
 onMounted(async () => {
-  kuotaOptions.value = await getAllKuota(user.value?.rptra_id)
+  // Load kuota dengan RPTRA filter
+  const result = await getAllKuota(user.value?.rptra_id)
+  kuotaOptions.value = result || []
   if (kuotaOptions.value.length > 0) {
     manualKuota.value = kuotaOptions.value[0].id
   }

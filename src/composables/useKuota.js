@@ -1,10 +1,9 @@
-import { supabase, getJakartaTime, toDateTimeLocal, fromDateTimeLocal, isNowInRange } from '../lib/supabase'
+import { supabase, toDateTimeLocal, fromDateTimeLocal } from '../lib/supabase'
 import { user, canViewAllRptra } from './useAuth'
 
-// Re-export untuk kemudahan
 export { toDateTimeLocal, fromDateTimeLocal }
 
-// GET all kuota with count
+// GET all kuota - tetep pake direct query karena RLS udah mati
 export const getAllKuota = async (rptraId = null) => {
   let query = supabase
     .from('kuota_bulanan')
@@ -12,7 +11,14 @@ export const getAllKuota = async (rptraId = null) => {
     .order('tahun', { ascending: false })
     .order('bulan', { ascending: false })
 
-  if (rptraId && !canViewAllRptra()) {
+  // Filter di frontend aja, gak masalah buat internal
+  if (!canViewAllRptra()) {
+    const strictRptraId = rptraId || user.value?.rptra_id
+    if (!strictRptraId) {
+      throw new Error('RPTRA ID tidak ditemukan untuk user ini')
+    }
+    query = query.eq('rptra_id', strictRptraId)
+  } else if (rptraId) {
     query = query.eq('rptra_id', rptraId)
   }
 
@@ -21,6 +27,7 @@ export const getAllKuota = async (rptraId = null) => {
 
   if (!kuotas || kuotas.length === 0) return []
 
+  // Hitung terdaftar
   const kuotaWithCount = await Promise.all(
     kuotas.map(async (k) => {
       const { count } = await supabase
@@ -28,7 +35,10 @@ export const getAllKuota = async (rptraId = null) => {
         .select('*', { count: 'exact', head: true })
         .eq('kuota_id', k.id)
       
-      return { ...k, terdaftar: count || 0 }
+      return {
+        ...k,
+        terdaftar: count || 0
+      }
     })
   )
 
@@ -63,7 +73,7 @@ export const checkAndTriggerOpen = async (kuotaId) => {
     return { opened: false, kuota, reason: 'no_schedule' }
   }
   
-  // ⭐ FIX: Database simpan UTC tanpa Z, kita tambahkan Z untuk parse sebagai UTC
+  // Parse WIB time
   const openTimeStr = kuota.target_open_time.endsWith('Z') 
     ? kuota.target_open_time 
     : kuota.target_open_time + 'Z'
@@ -99,19 +109,38 @@ export const checkAndTriggerOpen = async (kuotaId) => {
   return { opened: false, kuota, reason: 'unknown' }
 }
 
-// CREATE kuota
+// CREATE kuota - auto-set rptra_id dari user
 export const createKuota = async (kuotaData) => {
+  console.log('=== DEBUG createKuota ===')
+  console.log('user.value?.rptra_id:', user.value?.rptra_id)
+
+  const insertData = { ...kuotaData }
+  
+  // Auto-set rptra_id kalau bukan moderator
+  if (!canViewAllRptra()) {
+    insertData.rptra_id = user.value?.rptra_id
+  }
+  
+  console.log('insertData:', insertData)
+
+  if (!insertData.rptra_id) {
+    throw new Error('RPTRA ID wajib diisi')
+  }
+
   const { data, error } = await supabase
     .from('kuota_bulanan')
-    .insert(kuotaData)
+    .insert(insertData)
     .select()
     .maybeSingle()
 
-  if (error) throw error
+  if (error) {
+    console.error('Supabase error:', error)
+    throw error
+  }
   return data
 }
 
-// UPDATE kuota
+// UPDATE kuota - verify access dulu
 export const updateKuota = async (id, updateData) => {
   const { data, error } = await supabase
     .from('kuota_bulanan')
