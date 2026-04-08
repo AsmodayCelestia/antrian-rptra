@@ -150,7 +150,7 @@ export const useRPTRA = () => {
     if (!hasJalanKhas) {
       return { 
         valid: false, 
-        error: `Alamat harus berada di wilayah ${cfg.kelurahan}. Harus mengandung: ${jalanKhas.join(', ')}`,
+        error: `Alamat tidak sesuai ketentuan`,
         isPJLP: false
       }
     }

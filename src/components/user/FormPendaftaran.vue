@@ -28,7 +28,7 @@
         <!-- Email -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">
-            Email <span class="text-gray-400">(opsional)</span>
+            Email <span class="text-gray-400"></span>
           </label>
           <input 
             v-model="form.email" 
@@ -93,12 +93,11 @@
               'w-full px-4 py-2 border rounded-lg focus:ring-2 outline-none transition-all resize-none',
               errors.alamat ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'
             ]"
-            :placeholder="isPJLP ? `Contoh: Jl. Sudirman No 1, Jakarta` : `Contoh: Jl. ${jalanKhasExample} No 01`"
+            :placeholder="isPJLP ? `Contoh: Jl. Sudirman No 1, Jakarta` : `Contoh: Jl. example No 01`"
           ></textarea>
           <p v-if="errors.alamat" class="text-red-500 text-xs mt-1">{{ errors.alamat }}</p>
           <p v-else-if="!isPJLP" class="text-gray-400 text-xs mt-1">
-            Harus berada di wilayah {{ rptraConfig?.kelurahan }} 
-            <span v-if="jalanKhasList.length">(mengandung: {{ jalanKhasList.join(', ') }})</span>
+            <span v-if="jalanKhasList.length"></span>
           </p>
           <p v-else class="text-blue-600 text-xs mt-1">
             PJLP dapat mengisi alamat di luar {{ rptraConfig?.kelurahan }}
