@@ -1167,7 +1167,7 @@ const openWhatsApp = async (item) => {
     `Hari berikutnya (H+1) pukul 08.00 - 11.00 WIB\n\n` +
     `⚠️ *Catatan Penting:*\n` +
     `• Tunjukkan QR code saat pengambilan\n` +
-    `• Bawa KK dan KTP asli\n` +
+    `• Bawa Kartu ATM, Fotokopi KK dan KTP asli\n` +
     `• Nomor antrian tidak dapat dipindahtangankan\n\n` +
     `Terima kasih.`
   )
