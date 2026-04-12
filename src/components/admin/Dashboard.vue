@@ -138,7 +138,7 @@
             Reset
           </button>
           <button 
-          v-if="canEditAntrian"
+            v-if="canEditAntrian"
             @click="downloadExcel"
             class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
           >
@@ -211,6 +211,15 @@
                     title="Download QR"
                   >
                     📥
+                  </button>
+                  
+                  <!-- WhatsApp -->
+                  <button 
+                    @click="openWhatsApp(item)"
+                    class="bg-green-100 text-green-600 hover:bg-green-200 px-2 py-1 rounded text-xs"
+                    title="Kirim WhatsApp"
+                  >
+                    💬
                   </button>
                   
                   <!-- Edit Data - Hanya admin & moderator -->
@@ -905,6 +914,14 @@
           <div class="flex gap-3 pt-4 border-t">
             <button @click="downloadQR(detailItem)" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2">📥 Download QR</button>
             
+            <!-- WhatsApp Button -->
+            <button 
+              @click="openWhatsApp(detailItem); closeDetail()"
+              class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2"
+            >
+              💬 Kirim WhatsApp
+            </button>
+            
             <!-- Verifikasi & Tolak untuk menunggu -->
             <template v-if="canEditAntrian && detailItem.status === 'menunggu'">
               <button @click="updateStatus(detailItem.id, 'terverifikasi'); closeDetail()" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium">✓ Verifikasi</button>
@@ -969,6 +986,8 @@ import { getAllKuota } from '../../composables/useKuota'
 import { formatWIB } from '../../lib/supabase'
 import useCSVUpload from '../../composables/useCSVUpload'
 import QRCode from 'qrcode'
+import { uploadQR } from '../../lib/cloudinary'
+import { supabase } from '../../lib/supabase'
 
 
 const router = useRouter()
@@ -1090,6 +1109,71 @@ const {
   resetResults,
   validateRow
 } = useCSVUpload()
+
+// ⭐ WHATSAPP METHOD
+const openWhatsApp = async (item) => {
+  const phone = item.whatsapp?.replace(/\D/g, '')
+  if (!phone) {
+    alert('Nomor WhatsApp tidak valid')
+    return
+  }
+  
+  let formattedPhone = phone
+  if (phone.startsWith('0')) {
+    formattedPhone = '62' + phone.substring(1)
+  } else if (!phone.startsWith('62')) {
+    formattedPhone = '62' + phone
+  }
+
+  let qrUrl = item.qr_cloudinary_url
+  
+  // ⭐ KALAU BELUM ADA, GENERATE & UPLOAD DULU
+  if (!qrUrl) {
+    try {
+      const qrData = JSON.stringify({ 
+        nomor: item.nomor_antrian, 
+        kuota_id: item.kuota_id 
+      })
+      
+      const canvas = document.createElement('canvas')
+      await QRCode.toCanvas(canvas, qrData, { width: 400, margin: 2 })
+      
+      const dataUrl = canvas.toDataURL('image/png')
+      const uploadResult = await uploadQR(dataUrl, `antrian-${item.id}`)
+      
+      qrUrl = uploadResult.secure_url
+      
+      // Update database biar next time cepat
+      await supabase
+        .from('antrian')
+        .update({ qr_cloudinary_url: qrUrl })
+        .eq('id', item.id)
+        
+    } catch (err) {
+      alert('Gagal upload QR: ' + err.message)
+      return
+    }
+  }
+
+  const message = encodeURIComponent(
+    `Halo ${item.nama_pemilik_atm},\n\n` +
+    `Pendaftaran Anda di *${item.rptra?.nama || 'RPTRA'}* telah berhasil!\n\n` +
+    `📋 *Detail Pendaftaran:*\n` +
+    `• Nomor Antrian: *#${item.nomor_antrian?.toString().padStart(3, '0')}*\n` +
+    `• Kartu: ${item.kartu_pemanfaat}\n` +
+    `• Kelurahan: ${item.kelurahan}\n\n` +
+    `🔗 *Link QR Code:*\n${qrUrl}\n\n` +
+    `⏰ *Jadwal Pengambilan:*\n` +
+    `Hari berikutnya (H+1) pukul 08.00 - 11.00 WIB\n\n` +
+    `⚠️ *Catatan Penting:*\n` +
+    `• Tunjukkan QR code saat pengambilan\n` +
+    `• Bawa KK dan KTP asli\n` +
+    `• Nomor antrian tidak dapat dipindahtangankan\n\n` +
+    `Terima kasih.`
+  )
+  
+  window.open(`https://wa.me/${formattedPhone}?text=${message}`, '_blank')
+}
 
 const openEditModal = (item) => {
   editItem.value = { ...item }
