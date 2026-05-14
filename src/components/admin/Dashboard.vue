@@ -747,7 +747,7 @@
               <input 
                 v-model="editForm.nomor_atm"
                 type="text"
-                maxlength="16"
+                maxlength="18"
                 class="w-full border rounded-lg px-3 py-2 font-mono"
                 :class="{ 'border-red-500': editErrors.nomor_atm }"
               >
@@ -1220,7 +1220,10 @@ const validateEditForm = () => {
   
   if (!editForm.value.nomor_atm?.trim()) {
     errors.nomor_atm = 'Nomor ATM wajib diisi'
+  } else if (editForm.value.nomor_atm.length < 16 || editForm.value.nomor_atm.length > 18) {
+    errors.nomor_atm = 'Nomor ATM harus 16-18 digit'
   }
+
   
   if (!editForm.value.kartu_pemanfaat?.trim()) {
     errors.kartu_pemanfaat = 'Kartu pemanfaat wajib dipilih'

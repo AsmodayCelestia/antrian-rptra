@@ -166,12 +166,27 @@ const downloadQR = () => {
 
 onMounted(async () => {
   try {
-    const data = await getAntrianById(route.params.id)
+    const data = await getAntrianById(route.params.id, true)
+    
+    if (!data) {
+      error.value = 'Data antrian tidak ditemukan'
+      return
+    }
+    
     antrian.value = data
+    
+    // ⭐ FIX: Double nextTick + setTimeout untuk pastikan canvas ready
     await nextTick()
-    setTimeout(generateQR, 100)
+    await nextTick()
+    
+    if (qrCanvas.value) {
+      await generateQR()
+    } else {
+      setTimeout(generateQR, 300)
+    }
+    
   } catch (err) {
-    error.value = 'Data tidak ditemukan'
+    error.value = err.message || 'Terjadi kesalahan'
   } finally {
     loading.value = false
   }

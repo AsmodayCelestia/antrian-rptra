@@ -194,7 +194,7 @@
               type="text"
               required
               maxlength="16"
-              @input="sanitizeNumber('nomor_kk')"
+              @input="sanitizeKK('nomor_kk')"
               @blur="validateField('nomor_kk')"
               :class="[
                 'w-full px-4 py-2 border rounded-lg focus:ring-2 outline-none transition-all',
@@ -217,18 +217,18 @@
               v-model="form.nomor_atm" 
               type="text"
               required
-              maxlength="16"
-              @input="sanitizeNumber('nomor_atm')"
+              maxlength="18"
+              @input="sanitizeATM('nomor_atm')"
               @blur="validateField('nomor_atm')"
               :class="[
                 'w-full px-4 py-2 border rounded-lg focus:ring-2 outline-none transition-all',
                 errors.nomor_atm ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-purple-500'
               ]"
-              placeholder="16 digit nomor ATM"
+              placeholder="16-18 digit nomor ATM"
             >
             <div class="flex justify-between mt-1">
               <p v-if="errors.nomor_atm" class="text-red-500 text-xs">{{ errors.nomor_atm }}</p>
-              <p class="text-gray-400 text-xs">{{ form.nomor_atm.length }}/16</p>
+              <p class="text-gray-400 text-xs">{{ form.nomor_atm.length }}/18</p>
             </div>
           </div>
 
@@ -432,12 +432,15 @@ const formatRT = () => {
   form.rt = cleaned
 }
 
-const sanitizeNumber = (field) => {
-  form[field] = form[field].replace(/\D/g, '').slice(0, 16)
-  if (field === 'nomor_kk') {
-    kkExists.value = false
-    kkExistsData.value = null
-  }
+const sanitizeKK = () => {
+  form.nomor_kk = form.nomor_kk.replace(/\D/g, '').slice(0, 16)
+  kkExists.value = false
+  kkExistsData.value = null
+}
+
+// ⭐ KHUSUS NOMOR ATM (16-18 digit)
+const sanitizeATM = () => {
+  form.nomor_atm = form.nomor_atm.replace(/\D/g, '').slice(0, 18)
 }
 
 const sanitizeWhatsApp = () => {
@@ -518,7 +521,7 @@ const validators = {
   
   nomor_atm: (val) => {
     if (!val) return 'Nomor ATM wajib diisi'
-    if (!/^\d{16}$/.test(val)) return 'Nomor ATM harus 16 digit angka'
+    if (!/^\d{16,18}$/.test(val)) return 'Nomor ATM harus 16-18 digit angka'
     return ''
   },
   

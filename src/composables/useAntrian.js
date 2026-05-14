@@ -172,7 +172,8 @@ export const getAllAntrian = async () => {
 }
 
 // Get antrian by ID - dengan ownership check
-export const getAntrianById = async (id) => {
+// Di useAntrian.js - getAntrianById
+export const getAntrianById = async (id, isPublic = false) => {
   const { data, error } = await supabase
     .from('antrian')
     .select('*, kuota_bulanan(bulan, tahun), rptra(nama)')
@@ -181,8 +182,8 @@ export const getAntrianById = async (id) => {
   
   if (error) throw error
   
-  // ⭐ FIX: Cek akses RPTRA (silent fail)
-  if (!verifyRptraAccess(data)) {
+  // ⭐ FIX: Kalo public access (user ga login), skip ownership check
+  if (!isPublic && !verifyRptraAccess(data)) {
     return null
   }
   

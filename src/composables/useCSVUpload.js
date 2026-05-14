@@ -143,13 +143,13 @@ export const validateRow = (row, index) => {
     errors.push('Nomor KK harus 16 digit')
   }
   
-  // Nomor ATM (required, 16 digit)
-  const nomor_atm = row.nomor_atm?.trim().replace(/\D/g, '')
-  if (!nomor_atm) {
-    errors.push('Nomor ATM wajib diisi')
-  } else if (nomor_atm.length !== 16) {
-    errors.push('Nomor ATM harus 16 digit')
-  }
+// Nomor ATM (required, 16-18 digit)  // ⭐ UPDATE KOMENTAR
+const nomor_atm = row.nomor_atm?.trim().replace(/\D/g, '')
+if (!nomor_atm) {
+  errors.push('Nomor ATM wajib diisi')
+} else if (nomor_atm.length < 16 || nomor_atm.length > 18) {  // ⭐ GANTI !== 16 JADI < 16 || > 18
+  errors.push('Nomor ATM harus 16-18 digit')
+}
   
   // Nama Pemilik ATM (required, min 3 char, alphabet only)
   const nama_pemilik_atm = row.nama_pemilik_atm?.trim()
