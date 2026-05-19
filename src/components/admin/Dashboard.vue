@@ -123,7 +123,7 @@
               type="text"
               placeholder="Masukkan nomor..."
               class="w-full border rounded-lg px-3 py-2 pl-9"
-              maxlength="16"
+              maxlength="18"
             >
             <span class="absolute left-3 top-2.5 text-gray-400">🔍</span>
           </div>
