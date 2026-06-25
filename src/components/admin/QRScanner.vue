@@ -2,7 +2,7 @@
   <div class="max-w-2xl mx-auto p-4">
     <h1 class="text-2xl font-bold mb-6 text-center">Verifikasi Pengambilan Sembako</h1>
 
-    <!-- Scanner -->
+    <!-- Scanner dah -->
     <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
       <div v-if="!scanning && !scannedData" class="text-center py-8">
         <div class="text-6xl mb-4">📷</div>
