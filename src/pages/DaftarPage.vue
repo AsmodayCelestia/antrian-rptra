@@ -48,14 +48,14 @@
         <div class="bg-blue-600 text-white rounded-xl p-6 mb-6 text-center">
           <h1 class="text-2xl font-bold mb-2">Pendaftaran Antrian</h1>
           <p class="text-blue-100">{{ kuota.rptra?.nama }}</p>
-          <div v-if="kuota.tipe_kuota" class="mt-2">
+          <!-- <div v-if="kuota.tipe_kuota" class="mt-2">
             <span :class="[
               'px-3 py-1 rounded-full text-xs font-medium',
               kuota.tipe_kuota === 'pjlp' ? 'bg-green-400 text-green-900' : 'bg-blue-400 text-blue-900'
             ]">
               {{ kuota.tipe_kuota.toUpperCase() }}
             </span>
-          </div>
+          </div> -->
         </div>
 
         <FormPendaftaran
