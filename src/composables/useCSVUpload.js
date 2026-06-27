@@ -105,7 +105,7 @@ export const validateRow = (row, index, tipeKuota = 'umum') => {
   } else if (alamat.length < 10) {
     errors.push('Alamat minimal 10 karakter')
   } else if (!isPJLP || !PJLP_BEBAS) {
-    // Validasi jalan khas untuk non-PJLP (atau kalau PJLP tidak bebas)
+    // ⭐ Validasi jalan khas untuk non-PJLP (atau kalau PJLP tidak bebas)
     const lowerAlamat = alamat.toLowerCase()
     const hasJalanKhas = JALAN_KHAS.some(j => lowerAlamat.includes(j.toLowerCase()))
     if (!hasJalanKhas && JALAN_KHAS.length > 0) {
@@ -231,7 +231,7 @@ export const useCSVUpload = () => {
     // ⭐ Get tipe kuota dulu
     const { data: kuota, error: kuotaError } = await supabase
       .from('kuota_bulanan')
-      .select('tipe_kuota, rptra_id')
+      .select('tipe_kuota, rptra_id, bulan, tahun')
       .eq('id', kuotaId)
       .single()
     
@@ -297,6 +297,7 @@ export const useCSVUpload = () => {
         progress.value = Math.round((i / validRows.length) * 100)
         
         try {
+          // ⭐ CROSS-KUOTA CHECK: KK sudah terdaftar di bulan/tahun yang sama?
           const existing = await checkKKExists(result.data.nomor_kk, kuotaId)
           
           if (existing) {
@@ -304,12 +305,13 @@ export const useCSVUpload = () => {
             results.value.details.push({
               row: result.row,
               status: 'skipped',
-              message: `KK sudah terdaftar dengan nomor antrian #${existing.nomor_antrian.toString().padStart(3, '0')}`,
+              message: `KK sudah terdaftar di periode ini dengan nomor antrian #${existing.nomor_antrian.toString().padStart(3, '0')}`,
               data: result.data
             })
             continue
           }
           
+          // Insert to database
           await generateNomorAntrianAdmin({
             ...result.data,
             kuota_id: kuotaId,

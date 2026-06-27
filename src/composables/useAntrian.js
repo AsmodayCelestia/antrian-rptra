@@ -1,11 +1,13 @@
 import { canViewAllRptra, user, isModerator } from './useAuth'
 import { supabase, ensureTimeSynced, getTrustedTime } from '../lib/supabase'
 
+// Helper: Cek akses RPTRA
 const verifyRptraAccess = (antrianData) => {
   if (isModerator.value) return true
   return antrianData?.rptra_id === user.value?.rptra_id
 }
 
+// GENERATE NOMOR ANTRIAN (User Publik)
 export const generateNomorAntrian = async (formData) => {
   const { kuota_id, rptra_id } = formData
 
@@ -24,6 +26,7 @@ export const generateNomorAntrian = async (formData) => {
   await ensureTimeSynced()
   const now = getTrustedTime()
   
+  // Validasi tipe kuota
   if (kuota.tipe_kuota === 'pjlp' && formData.kartu_pemanfaat !== 'PJLP') {
     throw new Error('Kuota ini khusus untuk PJLP. Silakan pilih kuota umum.')
   }
@@ -56,6 +59,22 @@ export const generateNomorAntrian = async (formData) => {
   
   if (!kuota.dibuka) throw new Error('Pendaftaran sudah ditutup')
 
+  // ⭐ CROSS-KUOTA CHECK: KK sudah terdaftar di bulan/tahun yang sama?
+  const { data: existingKK } = await supabase
+    .from('antrian')
+    .select('id, nomor_antrian, kuota_id, kuota_bulanan!inner(rptra_id, bulan, tahun)')
+    .eq('nomor_kk', formData.nomor_kk)
+    .neq('status', 'batal')
+    .eq('kuota_bulanan.rptra_id', kuota.rptra_id)
+    .eq('kuota_bulanan.bulan', kuota.bulan)
+    .eq('kuota_bulanan.tahun', kuota.tahun)
+    .maybeSingle()
+
+  if (existingKK) {
+    throw new Error(`KK sudah terdaftar di periode ini dengan nomor antrian #${existingKK.nomor_antrian.toString().padStart(3, '0')}`)
+  }
+
+  // Cek sisa kuota
   const { count, error: countError } = await supabase
     .from('antrian')
     .select('*', { count: 'exact', head: true })
@@ -73,6 +92,7 @@ export const generateNomorAntrian = async (formData) => {
     throw new Error('Maaf, kuota sudah penuh')
   }
 
+  // Get next nomor
   const { data: last } = await supabase
     .from('antrian')
     .select('nomor_antrian')
@@ -83,6 +103,7 @@ export const generateNomorAntrian = async (formData) => {
 
   const nextNomor = last ? last.nomor_antrian + 1 : 1
 
+  // Insert
   const { data, error } = await supabase
     .from('antrian')
     .insert({
@@ -116,18 +137,33 @@ export const generateNomorAntrian = async (formData) => {
   return data
 }
 
+// Cek KK sudah terdaftar — CROSS-KUOTA (per bulan/tahun/rptra)
 export const checkKKExists = async (nomor_kk, kuota_id) => {
+  // Get kuota info dulu
+  const { data: kuota } = await supabase
+    .from('kuota_bulanan')
+    .select('rptra_id, bulan, tahun')
+    .eq('id', kuota_id)
+    .single()
+  
+  if (!kuota) return null
+
+  // Cek KK di bulan/tahun yang sama di RPTRA ini (regardless tipe kuota)
   const { data, error } = await supabase
     .from('antrian')
-    .select('id, nomor_antrian, status')
+    .select('id, nomor_antrian, status, kuota_id, kuota_bulanan!inner(rptra_id, bulan, tahun, tipe_kuota)')
     .eq('nomor_kk', nomor_kk)
-    .eq('kuota_id', kuota_id)
+    .neq('status', 'batal')
+    .eq('kuota_bulanan.rptra_id', kuota.rptra_id)
+    .eq('kuota_bulanan.bulan', kuota.bulan)
+    .eq('kuota_bulanan.tahun', kuota.tahun)
     .maybeSingle()
   
   if (error) throw error
   return data
 }
 
+// Update status antrian - dengan ownership check
 export const updateStatusAntrian = async (id, status, alasan = null) => {
   const { data: antrian, error: fetchError } = await supabase
     .from('antrian')
@@ -158,6 +194,7 @@ export const updateStatusAntrian = async (id, status, alasan = null) => {
   return data
 }
 
+// Get all antrian - dengan filter RPTRA untuk non-moderator
 export const getAllAntrian = async () => {
   let query = supabase
     .from('antrian')
@@ -176,6 +213,7 @@ export const getAllAntrian = async () => {
   return data
 }
 
+// Get antrian by ID - dengan ownership check
 export const getAntrianById = async (id, isPublic = false) => {
   const { data, error } = await supabase
     .from('antrian')
@@ -192,6 +230,7 @@ export const getAntrianById = async (id, isPublic = false) => {
   return data
 }
 
+// Get kuota aktif
 export const getKuotaAktif = async (rptraId) => {
   const effectiveRptraId = canViewAllRptra() ? rptraId : (user.value?.rptra_id || rptraId)
   
@@ -215,6 +254,7 @@ export const getKuotaAktif = async (rptraId) => {
   return data
 }
 
+// Get stats
 export const getStats = async () => {
   let query = supabase
     .from('antrian')
@@ -239,6 +279,7 @@ export const getStats = async () => {
   }
 }
 
+// Validate QR - dengan ownership check
 export const validateQR = async (nomor, kuota_id) => {
   const { data, error } = await supabase
     .from('antrian')
@@ -274,6 +315,7 @@ export const validateQR = async (nomor, kuota_id) => {
   }
 }
 
+// Generate nomor untuk admin (bypass waktu)
 export const generateNomorAntrianAdmin = async (formData) => {
   const { kuota_id, rptra_id } = formData
 
@@ -289,6 +331,22 @@ export const generateNomorAntrianAdmin = async (formData) => {
     throw new Error('Kuota tidak ditemukan')
   }
   
+  // ⭐ CROSS-KUOTA CHECK: KK sudah terdaftar di bulan/tahun yang sama?
+  const { data: existingKK } = await supabase
+    .from('antrian')
+    .select('id, nomor_antrian, kuota_id, kuota_bulanan!inner(rptra_id, bulan, tahun)')
+    .eq('nomor_kk', formData.nomor_kk)
+    .neq('status', 'batal')
+    .eq('kuota_bulanan.rptra_id', kuota.rptra_id)
+    .eq('kuota_bulanan.bulan', kuota.bulan)
+    .eq('kuota_bulanan.tahun', kuota.tahun)
+    .maybeSingle()
+
+  if (existingKK) {
+    throw new Error(`KK sudah terdaftar di periode ini dengan nomor antrian #${existingKK.nomor_antrian.toString().padStart(3, '0')}`)
+  }
+  
+  // Cek sisa kuota
   const { count, error: countError } = await supabase
     .from('antrian')
     .select('*', { count: 'exact', head: true })
@@ -302,6 +360,7 @@ export const generateNomorAntrianAdmin = async (formData) => {
     throw new Error('Maaf, kuota sudah penuh. Silakan edit kuota terlebih dahulu.')
   }
 
+  // Get next nomor
   const { data: last } = await supabase
     .from('antrian')
     .select('nomor_antrian')
@@ -312,6 +371,7 @@ export const generateNomorAntrianAdmin = async (formData) => {
 
   const nextNomor = last ? last.nomor_antrian + 1 : 1
 
+  // Insert
   const { data, error } = await supabase
     .from('antrian')
     .insert({
@@ -345,6 +405,7 @@ export const generateNomorAntrianAdmin = async (formData) => {
   return data
 }
 
+// Update data antrian (untuk edit) - dengan ownership check
 export const updateAntrian = async (id, updateData) => {
   const { data: antrian, error: fetchError } = await supabase
     .from('antrian')
