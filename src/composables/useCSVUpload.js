@@ -22,7 +22,6 @@ export const parseCSV = (csvText) => {
   const lines = csvText.trim().split('\n')
   if (lines.length < 2) throw new Error('CSV kosong atau tidak valid')
   
-  // Parse header
   const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''))
   const requiredHeaders = ['kartu_pemanfaat', 'alamat', 'rt', 'rw', 'nomor_kk', 'nomor_atm', 'nama_pemilik_atm', 'whatsapp']
   
@@ -31,13 +30,11 @@ export const parseCSV = (csvText) => {
     throw new Error(`Header tidak lengkap. Missing: ${missingHeaders.join(', ')}`)
   }
   
-  // Parse rows
   const rows = []
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim()
     if (!line) continue
     
-    // Handle quoted values with commas
     const values = []
     let current = ''
     let inQuotes = false
@@ -65,17 +62,16 @@ export const parseCSV = (csvText) => {
   return rows
 }
 
-// Validate single row - DYNAMIC CONFIG
-export const validateRow = (row, index) => {
+// Validate single row - DYNAMIC CONFIG + TIPE KUOTA
+export const validateRow = (row, index, tipeKuota = 'umum') => {
   const errors = []
   const warnings = []
   
-  // GET DYNAMIC VALUES
   const VALID_KARTU = getValidKartuFromConfig()
   const JALAN_KHAS = getJalanKhasFromConfig()
   const KELURAHAN = rptraConfig.value?.kelurahan || 'Unknown'
   const PJLP_BEBAS = rptraConfig.value?.alamat_rules?.pjlp_bebas !== false
-  
+
   // Email (optional)
   let email = row.email || ''
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -91,7 +87,16 @@ export const validateRow = (row, index) => {
     errors.push(`Kartu tidak valid. Pilihan: ${VALID_KARTU.join(', ')}`)
   }
   
+  // ⭐ VALIDASI TIPE KUOTA
   const isPJLP = kartu === 'PJLP'
+  
+  if (tipeKuota === 'pjlp' && !isPJLP) {
+    errors.push('Kuota PJLP - hanya PJLP yang dapat didaftarkan')
+  }
+  
+  if (tipeKuota === 'umum' && isPJLP) {
+    errors.push('Kuota Umum - PJLP wajib didaftarkan melalui kuota PJLP')
+  }
 
   // Alamat (required)
   const alamat = row.alamat?.trim()
@@ -143,13 +148,13 @@ export const validateRow = (row, index) => {
     errors.push('Nomor KK harus 16 digit')
   }
   
-// Nomor ATM (required, 16-18 digit)  // ⭐ UPDATE KOMENTAR
-const nomor_atm = row.nomor_atm?.trim().replace(/\D/g, '')
-if (!nomor_atm) {
-  errors.push('Nomor ATM wajib diisi')
-} else if (nomor_atm.length < 16 || nomor_atm.length > 18) {  // ⭐ GANTI !== 16 JADI < 16 || > 18
-  errors.push('Nomor ATM harus 16-18 digit')
-}
+  // Nomor ATM (required, 16-18 digit)
+  const nomor_atm = row.nomor_atm?.trim().replace(/\D/g, '')
+  if (!nomor_atm) {
+    errors.push('Nomor ATM wajib diisi')
+  } else if (nomor_atm.length < 16 || nomor_atm.length > 18) {
+    errors.push('Nomor ATM harus 16-18 digit')
+  }
   
   // Nama Pemilik ATM (required, min 3 char, alphabet only)
   const nama_pemilik_atm = row.nama_pemilik_atm?.trim()
@@ -166,7 +171,6 @@ if (!nomor_atm) {
   if (!whatsapp) {
     errors.push('WhatsApp wajib diisi')
   } else {
-    // Auto-convert 62 to 08
     if (whatsapp.startsWith('62')) {
       whatsapp = '0' + whatsapp.slice(2)
     } else if (!whatsapp.startsWith('0')) {
@@ -185,7 +189,7 @@ if (!nomor_atm) {
     warnings,
     data: {
       email: email || null,
-      kelurahan: KELURAHAN, // DYNAMIC DARI CONFIG
+      kelurahan: KELURAHAN,
       kartu_pemanfaat: kartu,
       alamat,
       rt,
@@ -198,7 +202,7 @@ if (!nomor_atm) {
   }
 }
 
-// Process CSV upload - VERIFY RPTRA ACCESS
+// Process CSV upload - VERIFY RPTRA ACCESS + TIPE KUOTA
 export const useCSVUpload = () => {
   const loading = ref(false)
   const progress = ref(0)
@@ -224,22 +228,24 @@ export const useCSVUpload = () => {
   }
   
   const processCSV = async (file, kuotaId, rptraId) => {
-    // ⭐ FIX: Verify kuota belongs to user's RPTRA
+    // ⭐ Get tipe kuota dulu
+    const { data: kuota, error: kuotaError } = await supabase
+      .from('kuota_bulanan')
+      .select('tipe_kuota, rptra_id')
+      .eq('id', kuotaId)
+      .single()
+    
+    if (kuotaError || !kuota) {
+      throw new Error('Kuota tidak ditemukan')
+    }
+    
+    const tipeKuota = kuota.tipe_kuota || 'umum'
+    
+    // Verify access
     if (!canViewAllRptra()) {
       const effectiveRptraId = user.value?.rptra_id
       if (!effectiveRptraId) {
         throw new Error('RPTRA ID tidak ditemukan untuk user ini')
-      }
-      
-      // ⭐ FIX: Verify kuota belongs to this RPTRA
-      const { data: kuota, error: kuotaError } = await supabase
-        .from('kuota_bulanan')
-        .select('rptra_id')
-        .eq('id', kuotaId)
-        .single()
-      
-      if (kuotaError || !kuota) {
-        throw new Error('Kuota tidak ditemukan')
       }
       
       if (kuota.rptra_id !== effectiveRptraId) {
@@ -253,7 +259,6 @@ export const useCSVUpload = () => {
     resetResults()
     
     try {
-      // Read file
       const text = await file.text()
       const rows = parseCSV(text)
       
@@ -263,8 +268,8 @@ export const useCSVUpload = () => {
       
       results.value.total = rows.length
       
-      // Validate all rows first
-      const validatedRows = rows.map((row, index) => validateRow(row, index))
+      // Validate all rows first with tipe kuota
+      const validatedRows = rows.map((row, index) => validateRow(row, index, tipeKuota))
       
       // Check for duplicate KK within CSV itself
       const kkMap = new Map()
@@ -290,8 +295,8 @@ export const useCSVUpload = () => {
         const result = validRows[i]
         currentRow.value = i + 1
         progress.value = Math.round((i / validRows.length) * 100)
-             try {
-          // Check if KK already exists in database
+        
+        try {
           const existing = await checkKKExists(result.data.nomor_kk, kuotaId)
           
           if (existing) {
@@ -305,11 +310,10 @@ export const useCSVUpload = () => {
             continue
           }
           
-          // Insert to database - PAKAI rptraId yang sudah diverifikasi
           await generateNomorAntrianAdmin({
             ...result.data,
             kuota_id: kuotaId,
-            rptra_id: rptraId // PASTIKAN RPTRA_ID BENAR
+            rptra_id: rptraId
           })
           
           results.value.success++
@@ -341,7 +345,6 @@ export const useCSVUpload = () => {
   }
   
   const downloadTemplate = () => {
-    // DYNAMIC HEADER BERDASARKAN CONFIG
     const headers = ['email', 'kartu_pemanfaat', 'alamat', 'rt', 'rw', 'nomor_kk', 'nomor_atm', 'nama_pemilik_atm', 'whatsapp']
     const kelurahan = rptraConfig.value?.kelurahan || 'Pademangan Timur'
     const jalanKhas = getJalanKhasFromConfig()

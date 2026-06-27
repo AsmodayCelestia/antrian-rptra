@@ -80,6 +80,16 @@
     <!-- Filter & Search Controls -->
     <div class="bg-white rounded-xl shadow-lg p-4 mb-6">
       <div class="flex flex-wrap gap-4 items-end">
+        <!-- Filter Tipe Kuota -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Tipe Kuota</label>
+          <select v-model="filterTipeKuota" class="border rounded-lg px-3 py-2 bg-white min-w-[150px]">
+            <option value="all">Semua Tipe</option>
+            <option value="umum">Umum</option>
+            <option value="pjlp">PJLP</option>
+          </select>
+        </div>
+
         <!-- Filter Bulan -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Bulan</label>
@@ -150,6 +160,7 @@
       <p class="text-sm text-gray-500 mt-3">
         Menampilkan {{ paginatedRows.length }} dari {{ filteredRows.length }} data 
         <span v-if="searchKKATM">(filter pencarian aktif)</span>
+        <span v-if="filterTipeKuota !== 'all'"> | Tipe: {{ filterTipeKuota.toUpperCase() }}</span>
       </p>
     </div>
 
@@ -162,6 +173,7 @@
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">No Antrian</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Nama</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Kartu</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Tipe Kuota</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Status</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Keterangan</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Waktu Daftar</th>
@@ -178,6 +190,14 @@
                 <div class="text-xs text-gray-500">{{ item.whatsapp }}</div>
               </td>
               <td class="px-4 py-3 text-sm whitespace-nowrap">{{ item.kartu_pemanfaat }}</td>
+              <td class="px-4 py-3 text-center whitespace-nowrap">
+                <span :class="[
+                  'px-2 py-1 rounded-full text-xs font-medium',
+                  item.kuota_bulanan?.tipe_kuota === 'pjlp' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                ]">
+                  {{ (item.kuota_bulanan?.tipe_kuota || 'umum').toUpperCase() }}
+                </span>
+              </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 <span :class="statusClass(item.status)" class="px-2 py-1 rounded text-xs font-medium">
                   {{ item.status?.toUpperCase() }}
@@ -195,7 +215,6 @@
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 <div class="flex gap-1 flex-wrap justify-center">
-                  <!-- Lihat detail -->
                   <button 
                     @click="showDetail(item)"
                     class="bg-blue-100 text-blue-600 hover:bg-blue-200 px-2 py-1 rounded text-xs"
@@ -204,7 +223,6 @@
                     👁️
                   </button>
                   
-                  <!-- Download QR -->
                   <button 
                     @click="downloadQR(item)"
                     class="bg-gray-100 text-gray-600 hover:bg-gray-200 px-2 py-1 rounded text-xs"
@@ -213,7 +231,6 @@
                     📥
                   </button>
                   
-                  <!-- WhatsApp -->
                   <button 
                     @click="openWhatsApp(item)"
                     class="bg-green-100 text-green-600 hover:bg-green-200 px-2 py-1 rounded text-xs"
@@ -222,7 +239,6 @@
                     💬
                   </button>
                   
-                  <!-- Edit Data - Hanya admin & moderator -->
                   <button 
                     v-if="canEditAntrian"
                     @click="openEditModal(item)"
@@ -232,7 +248,6 @@
                     ✏️
                   </button>
                   
-                  <!-- Verifikasi & Tolak untuk status menunggu -->
                   <template v-if="canEditAntrian && item.status === 'menunggu'">
                     <button 
                       @click="updateStatus(item.id, 'terverifikasi')"
@@ -250,7 +265,6 @@
                     </button>
                   </template>
 
-                  <!-- Status terverifikasi: tunggu swipe di QR Scanner -->
                   <template v-else-if="canEditAntrian && item.status === 'terverifikasi'">
                     <span class="text-blue-600 text-xs px-2 py-1">QR Scanner →</span>
                   </template>
@@ -258,7 +272,7 @@
               </td>
             </tr>
             <tr v-if="paginatedRows.length === 0">
-              <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+              <td colspan="8" class="px-4 py-8 text-center text-gray-500">
                 Belum ada antrian
               </td>
             </tr>
@@ -369,12 +383,20 @@
                   <h4 class="font-bold text-gray-800">{{ formatMonthYear(k.bulan, k.tahun) }}</h4>
                   <p class="text-sm text-gray-500">{{ k.rptra?.nama }}</p>
                 </div>
-                <span 
-                  class="px-2 py-1 rounded text-xs font-medium"
-                  :class="k.dibuka ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'"
-                >
-                  {{ k.dibuka ? 'Dibuka' : 'Ditutup' }}
-                </span>
+                <div class="flex flex-col gap-1 items-end">
+                  <span 
+                    class="px-2 py-1 rounded text-xs font-medium"
+                    :class="k.dibuka ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'"
+                  >
+                    {{ k.dibuka ? 'Dibuka' : 'Ditutup' }}
+                  </span>
+                  <span 
+                    class="px-2 py-0.5 rounded text-xs"
+                    :class="k.tipe_kuota === 'pjlp' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'"
+                  >
+                    {{ (k.tipe_kuota || 'umum').toUpperCase() }}
+                  </span>
+                </div>
               </div>
               
               <div class="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
@@ -445,12 +467,20 @@
                   <h4 class="font-bold text-gray-800">{{ formatMonthYear(k.bulan, k.tahun) }}</h4>
                   <p class="text-sm text-gray-500">{{ k.rptra?.nama }}</p>
                 </div>
-                <span 
-                  class="px-2 py-1 rounded text-xs font-medium"
-                  :class="k.dibuka ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'"
-                >
-                  {{ k.dibuka ? 'Dibuka' : 'Ditutup' }}
-                </span>
+                <div class="flex flex-col gap-1 items-end">
+                  <span 
+                    class="px-2 py-1 rounded text-xs font-medium"
+                    :class="k.dibuka ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'"
+                  >
+                    {{ k.dibuka ? 'Dibuka' : 'Ditutup' }}
+                  </span>
+                  <span 
+                    class="px-2 py-0.5 rounded text-xs"
+                    :class="k.tipe_kuota === 'pjlp' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'"
+                  >
+                    {{ (k.tipe_kuota || 'umum').toUpperCase() }}
+                  </span>
+                </div>
               </div>
               
               <div class="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
@@ -481,7 +511,7 @@
               <ul class="list-disc list-inside text-xs space-y-1">
                 <li>Maksimal 100 row per upload</li>
                 <li>Format: email,kartu_pemanfaat,alamat,rt,rw,nomor_kk,nomor_atm,nama_pemilik_atm,whatsapp</li>
-                <li>Kelurahan otomatis: Pademangan Timur</li>
+                <li>Kelurahan otomatis sesuai RPTRA</li>
                 <li>Duplikat KK akan di-skip</li>
               </ul>
             </div>
@@ -507,13 +537,12 @@
         <div class="bg-blue-600 text-white p-4 flex justify-between items-center">
           <div>
             <h3 class="text-xl font-bold">📤 Upload File CSV</h3>
-            <p class="text-blue-100 text-sm">{{ formatMonthYear(selectedKuota?.bulan, selectedKuota?.tahun) }} - Sisa Kuota: {{ selectedKuota?.kuota - (selectedKuota?.terdaftar || 0) }}</p>
+            <p class="text-blue-100 text-sm">{{ formatMonthYear(selectedKuota?.bulan, selectedKuota?.tahun) }} - {{ (selectedKuota?.tipe_kuota || 'umum').toUpperCase() }} | Sisa Kuota: {{ selectedKuota?.kuota - (selectedKuota?.terdaftar || 0) }}</p>
           </div>
           <button @click="closeCSVUploadModal" class="text-white hover:bg-blue-700 p-2 rounded-lg">✕</button>
         </div>
 
         <div class="p-6 overflow-y-auto flex-1">
-          <!-- File Input -->
           <div v-if="!csvFile" class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-500 transition-colors">
             <input 
               type="file" 
@@ -530,7 +559,6 @@
             </label>
           </div>
 
-          <!-- Preview Table -->
           <div v-else-if="csvPreview.length > 0" class="space-y-4">
             <div class="flex items-center justify-between">
               <h4 class="font-bold text-gray-800">Preview Data (5 row pertama)</h4>
@@ -568,7 +596,6 @@
               </table>
             </div>
 
-            <!-- Validation Errors -->
             <div v-if="csvPreview.some(p => !p.valid)" class="bg-red-50 border border-red-200 rounded-lg p-3">
               <p class="text-red-700 font-semibold text-sm mb-2">⚠️ Error ditemukan di preview:</p>
               <ul class="text-xs text-red-600 space-y-1 max-h-32 overflow-y-auto">
@@ -616,7 +643,6 @@
         </div>
 
         <div class="p-6 overflow-y-auto flex-1">
-          <!-- Summary Cards -->
           <div class="grid grid-cols-4 gap-3 mb-6">
             <div class="bg-blue-50 rounded-lg p-3 text-center">
               <p class="text-2xl font-bold text-blue-600">{{ csvResults.total }}</p>
@@ -636,7 +662,6 @@
             </div>
           </div>
 
-          <!-- Details List -->
           <div v-if="csvResults.details.length > 0" class="space-y-2">
             <h4 class="font-bold text-gray-800 mb-2">Detail per Row:</h4>
             <div class="max-h-64 overflow-y-auto space-y-1">
@@ -864,6 +889,12 @@
             <span :class="statusClass(detailItem.status)" class="px-3 py-1 rounded-full text-sm font-medium">
               {{ detailItem.status.toUpperCase() }}
             </span>
+            <span :class="[
+              'px-2 py-1 rounded-full text-xs font-medium',
+              detailItem.kuota_bulanan?.tipe_kuota === 'pjlp' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+            ]">
+              {{ (detailItem.kuota_bulanan?.tipe_kuota || 'umum').toUpperCase() }}
+            </span>
             <span class="text-gray-500 text-sm">Terdaftar: {{ formatTime(detailItem.created_at) }}</span>
           </div>
 
@@ -904,6 +935,7 @@
               <div class="space-y-2 text-sm">
                 <div class="flex justify-between"><span class="text-gray-500">RPTRA:</span><span class="font-medium">{{ detailItem.rptra?.nama || '-' }}</span></div>
                 <div class="flex justify-between"><span class="text-gray-500">Periode:</span><span class="font-medium">{{ formatMonthYearFromItem(detailItem) }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">Jenis Kuota:</span><span class="font-medium">{{ (detailItem.kuota_bulanan?.tipe_kuota || 'umum').toUpperCase() }}</span></div>
                 <div v-if="detailItem.alasan_ditolak" class="mt-2 p-2 bg-red-100 rounded text-red-700 text-xs">
                   <span class="font-semibold">Alasan Ditolak:</span><br>{{ detailItem.alasan_ditolak }}
                 </div>
@@ -914,7 +946,6 @@
           <div class="flex gap-3 pt-4 border-t">
             <button @click="downloadQR(detailItem)" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2">📥 Download QR</button>
             
-            <!-- WhatsApp Button -->
             <button 
               @click="openWhatsApp(detailItem); closeDetail()"
               class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2"
@@ -922,20 +953,17 @@
               💬 Kirim WhatsApp
             </button>
             
-            <!-- Verifikasi & Tolak untuk menunggu -->
             <template v-if="canEditAntrian && detailItem.status === 'menunggu'">
               <button @click="updateStatus(detailItem.id, 'terverifikasi'); closeDetail()" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium">✓ Verifikasi</button>
               <button @click="showTolakModal(detailItem); closeDetail()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium">✕ Tolak</button>
             </template>
             
-            <!-- Terverifikasi: suruh ke QR Scanner -->
             <template v-else-if="detailItem.status === 'terverifikasi'">
               <div class="flex-1 bg-blue-50 border border-blue-200 text-blue-700 py-2 rounded-lg text-center text-sm flex items-center justify-center gap-2">
                 <span>⏳</span> Menunggu swipe kartu
               </div>
             </template>
             
-            <!-- Staff ga bisa verifikasi -->
             <template v-else-if="detailItem.status === 'menunggu'">
               <div class="flex-1 bg-yellow-50 border border-yellow-200 text-yellow-700 py-2 rounded-lg text-center text-sm flex items-center justify-center gap-2">
                 <span>🔒</span> Verifikasi via QR Scanner
@@ -989,15 +1017,14 @@ import QRCode from 'qrcode'
 import { uploadQR } from '../../lib/cloudinary'
 import { supabase } from '../../lib/supabase'
 
-
 const router = useRouter()
 
 const antrianList = ref([])
 const kuotaAktif = ref(null)
 
-const now = new Date()
-const filterBulan = ref(now.getMonth() + 1)
-const filterTahun = ref(now.getFullYear())
+const filterTipeKuota = ref('all')
+const filterBulan = ref(new Date().getMonth() + 1)
+const filterTahun = ref(new Date().getFullYear())
 const filterKartu = ref('')
 const searchKKATM = ref('')
 
@@ -1013,6 +1040,10 @@ const kartuOptions = ['KJP', 'PJLP', 'Kartu Anak Jakarta', 'Kartu Lansia Jakarta
 
 const filteredRows = computed(() => {
   let result = [...antrianList.value]
+  
+  if (filterTipeKuota.value !== 'all') {
+    result = result.filter(item => item.kuota_bulanan?.tipe_kuota === filterTipeKuota.value)
+  }
   
   result = result.filter(item => {
     const date = new Date(item.created_at)
@@ -1074,7 +1105,7 @@ const stats = computed(() => ({
   selesai: filteredRows.value.filter(d => d.status === 'selesai').length
 }))
 
-watch([filterBulan, filterTahun, filterKartu, searchKKATM], () => {
+watch([filterBulan, filterTahun, filterKartu, searchKKATM, filterTipeKuota], () => {
   currentPage.value = 1
 })
 
@@ -1093,7 +1124,6 @@ const editErrors = ref({})
 const editError = ref('')
 const editLoading = ref(false)
 
-// CSV Upload State
 const csvMode = ref(false)
 const showCSVUploadModal = ref(false)
 const csvFile = ref(null)
@@ -1110,7 +1140,6 @@ const {
   validateRow
 } = useCSVUpload()
 
-// ⭐ WHATSAPP METHOD
 const openWhatsApp = async (item) => {
   const phone = item.whatsapp?.replace(/\D/g, '')
   if (!phone) {
@@ -1127,7 +1156,6 @@ const openWhatsApp = async (item) => {
 
   let qrUrl = item.qr_cloudinary_url
   
-  // ⭐ KALAU BELUM ADA, GENERATE & UPLOAD DULU
   if (!qrUrl) {
     try {
       const qrData = JSON.stringify({ 
@@ -1143,7 +1171,6 @@ const openWhatsApp = async (item) => {
       
       qrUrl = uploadResult.secure_url
       
-      // Update database biar next time cepat
       await supabase
         .from('antrian')
         .update({ qr_cloudinary_url: qrUrl })
@@ -1161,7 +1188,8 @@ const openWhatsApp = async (item) => {
     `📋 *Detail Pendaftaran:*\n` +
     `• Nomor Antrian: *#${item.nomor_antrian?.toString().padStart(3, '0')}*\n` +
     `• Kartu: ${item.kartu_pemanfaat}\n` +
-    `• Kelurahan: ${item.kelurahan}\n\n` +
+    `• Kelurahan: ${item.kelurahan}\n` +
+    `• Jenis Kuota: ${(item.kuota_bulanan?.tipe_kuota || 'umum').toUpperCase()}\n\n` +
     `🔗 *Link QR Code:*\n${qrUrl}\n\n` +
     `⏰ *Jadwal Pengambilan:*\n` +
     `Hari berikutnya (H+1) pukul 08.00 - 11.00 WIB\n\n` +
@@ -1224,7 +1252,6 @@ const validateEditForm = () => {
     errors.nomor_atm = 'Nomor ATM harus 16-18 digit'
   }
 
-  
   if (!editForm.value.kartu_pemanfaat?.trim()) {
     errors.kartu_pemanfaat = 'Kartu pemanfaat wajib dipilih'
   }
@@ -1281,6 +1308,8 @@ const submitEdit = async () => {
 }
 
 const downloadExcel = () => {
+  const tipeLabel = filterTipeKuota.value === 'all' ? 'Semua Tipe' : filterTipeKuota.value.toUpperCase()
+  
   const data = filteredRows.value.map(item => ({
     'No Antrian': `#${item.nomor_antrian?.toString().padStart(3, '0')}`,
     'Nama Pemilik ATM': item.nama_pemilik_atm,
@@ -1293,6 +1322,7 @@ const downloadExcel = () => {
     'RW': item.rw,
     'Alamat Lengkap': item.alamat,
     'Kartu Pemanfaat': item.kartu_pemanfaat,
+    'Jenis Kuota': (item.kuota_bulanan?.tipe_kuota || 'umum').toUpperCase(),
     'Status': item.status?.toUpperCase(),
     'Alasan Ditolak': item.alasan_ditolak || '-',
     'Waktu Daftar': formatTime(item.created_at),
@@ -1306,6 +1336,7 @@ const downloadExcel = () => {
     ['LAPORAN ANTRIAN RPTRA - DATA LENGKAP'],
     [''],
     [`Periode: ${months[filterBulan.value - 1]} ${filterTahun.value}`],
+    [`Tipe Kuota: ${tipeLabel}`],
     [`RPTRA: ${!isModerator.value && user.value?.rptra ? user.value.rptra.nama : 'Semua RPTRA (Moderator)'}`],
     [`Dicetak: ${new Date().toLocaleString('id-ID')} | Total Data: ${filteredRows.value.length}`],
     ['']
@@ -1319,9 +1350,9 @@ const downloadExcel = () => {
   const range = XLSX.utils.decode_range(ws['!ref'])
   
   ws['A1'].s = { font: { bold: true, size: 16, color: { rgb: '1E40AF' } } }
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 14 } }]
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 15 } }]
   
-  const headerRowIndex = 6
+  const headerRowIndex = 7
   for (let C = range.s.c; C <= range.e.c; ++C) {
     const address = XLSX.utils.encode_col(C) + headerRowIndex
     if (!ws[address]) continue
@@ -1336,10 +1367,10 @@ const downloadExcel = () => {
     { wch: 12 }, { wch: 25 }, { wch: 25 }, { wch: 15 },
     { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 5 },
     { wch: 5 }, { wch: 35 }, { wch: 20 }, { wch: 12 },
-    { wch: 25 }, { wch: 20 }, { wch: 20 }
+    { wch: 12 }, { wch: 25 }, { wch: 20 }, { wch: 20 }
   ]
   
-  ws['!freeze'] = { xSplit: 0, ySplit: 6 }
+  ws['!freeze'] = { xSplit: 0, ySplit: 7 }
   XLSX.utils.book_append_sheet(wb, ws, 'Data Lengkap')
 
   const summaryData = [
@@ -1347,6 +1378,7 @@ const downloadExcel = () => {
     [''],
     ['Informasi Umum'],
     ['Periode', `${months[filterBulan.value - 1]} ${filterTahun.value}`],
+    ['Tipe Kuota', tipeLabel],
     ['RPTRA', !isModerator.value && user.value?.rptra ? user.value.rptra.nama : 'Semua RPTRA (Moderator)'],
     ['Total Data', filteredRows.value.length],
     [''],
@@ -1365,7 +1397,7 @@ const downloadExcel = () => {
   wsSummary['!cols'] = [{ wch: 20 }, { wch: 15 }]
   XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan')
 
-  const fileName = `Laporan_Antrian_${months[filterBulan.value - 1]}_${filterTahun.value}_${new Date().getTime()}.xlsx`
+  const fileName = `Laporan_Antrian_${months[filterBulan.value - 1]}_${filterTahun.value}_${tipeLabel.replace(/\s+/g, '_')}_${new Date().getTime()}.xlsx`
   XLSX.writeFile(wb, fileName)
 }
 
@@ -1375,6 +1407,7 @@ const resetFilters = () => {
   filterTahun.value = n.getFullYear()
   filterKartu.value = ''
   searchKKATM.value = ''
+  filterTipeKuota.value = 'all'
   currentPage.value = 1
 }
 
@@ -1513,7 +1546,6 @@ const handleCSVFileChange = (event) => {
   
   csvFile.value = file
   
-  // Preview first 5 rows
   const reader = new FileReader()
   reader.onload = (e) => {
     try {
@@ -1528,7 +1560,6 @@ const handleCSVFileChange = (event) => {
       const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''))
       
       csvPreview.value = lines.slice(1, 6).map((line, index) => {
-        // Handle quoted values with commas
         const values = []
         let current = ''
         let inQuotes = false
@@ -1571,7 +1602,7 @@ const submitCSVUpload = async () => {
   
   try {
     await processCSV(csvFile.value, selectedKuota.value.id, user.value?.rptra_id)
-    await fetchAntrian() // Refresh data
+    await fetchAntrian()
     showCSVUploadModal.value = false
   } catch (err) {
     alert('Error: ' + err.message)
@@ -1596,6 +1627,7 @@ const downloadCSVReport = () => {
     ['LAPORAN UPLOAD CSV'],
     [''],
     ['Periode', formatMonthYear(selectedKuota.value?.bulan, selectedKuota.value?.tahun)],
+    ['Tipe Kuota', (selectedKuota.value?.tipe_kuota || 'umum').toUpperCase()],
     ['RPTRA', user.value?.rptra?.nama || '-'],
     ['Waktu Upload', new Date().toLocaleString('id-ID')],
     [''],
@@ -1623,9 +1655,8 @@ const downloadCSVReport = () => {
 }
 
 const showDetail = (item) => {
-  // ⭐ FIX: Cek akses sebelum show detail
   if (!verifyDetailAccess(item)) {
-    return // Silent fail
+    return
   }
   detailItem.value = { ...item }
 }

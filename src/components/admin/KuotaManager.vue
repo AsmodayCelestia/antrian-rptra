@@ -13,6 +13,28 @@
       </button>
     </div>
 
+    <!-- Filter Tipe -->
+    <div class="flex gap-3 mb-4">
+      <button 
+        @click="filterTipe = 'all'"
+        :class="['px-4 py-2 rounded-lg text-sm font-medium transition-colors', filterTipe === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300']"
+      >
+        Semua
+      </button>
+      <button 
+        @click="filterTipe = 'umum'"
+        :class="['px-4 py-2 rounded-lg text-sm font-medium transition-colors', filterTipe === 'umum' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300']"
+      >
+        Umum
+      </button>
+      <button 
+        @click="filterTipe = 'pjlp'"
+        :class="['px-4 py-2 rounded-lg text-sm font-medium transition-colors', filterTipe === 'pjlp' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300']"
+      >
+        PJLP
+      </button>
+    </div>
+
     <div v-if="loading" class="text-center py-12">
       <div class="animate-spin text-4xl mb-4">⏳</div>
       <p>Memuat data...</p>
@@ -24,6 +46,7 @@
           <thead class="bg-gray-50">
             <tr>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bulan/Tahun</th>
+              <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Tipe</th>
               <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Kuota</th>
               <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Terdaftar</th>
               <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Sisa</th>
@@ -34,10 +57,18 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="item in kuotaList" :key="item.id" class="hover:bg-gray-50">
+            <tr v-for="item in filteredKuotaList" :key="item.id" class="hover:bg-gray-50">
               <td class="px-4 py-3">
                 <div class="font-medium">{{ formatMonthYear(item.bulan, item.tahun) }}</div>
                 <div class="text-xs text-gray-500">{{ item.rptra?.nama || '-' }}</div>
+              </td>
+              <td class="px-4 py-3 text-center">
+                <span :class="[
+                  'px-2 py-1 rounded-full text-xs font-medium',
+                  item.tipe_kuota === 'pjlp' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                ]">
+                  {{ (item.tipe_kuota || 'umum').toUpperCase() }}
+                </span>
               </td>
               <td class="px-4 py-3 text-center font-bold">{{ item.kuota }}</td>
               <td class="px-4 py-3 text-center" :class="item.terdaftar > 0 ? 'text-blue-600' : 'text-gray-400'">
@@ -115,8 +146,8 @@
               </td>
             </tr>
             
-            <tr v-if="!kuotaList || kuotaList.length === 0">
-              <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+            <tr v-if="!filteredKuotaList || filteredKuotaList.length === 0">
+              <td colspan="9" class="px-4 py-8 text-center text-gray-500">
                 <div class="text-4xl mb-2">📭</div>
                 <p>Belum ada kuota. Klik "Buat Kuota Baru" untuk mulai.</p>
               </td>
@@ -132,6 +163,14 @@
         <h3 class="text-xl font-bold mb-4">Buat Kuota Baru</h3>
         
         <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Tipe Kuota *</label>
+            <select v-model="form.tipe_kuota" class="w-full border rounded-lg px-3 py-2 bg-white">
+              <option value="umum">Umum (KJP, Kartu Anak, dll)</option>
+              <option value="pjlp">PJLP</option>
+            </select>
+          </div>
+
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Bulan</label>
@@ -235,6 +274,12 @@
         
         <div class="space-y-4">
           <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Tipe Kuota</label>
+            <input :value="(editingItem.tipe_kuota || 'umum').toUpperCase()" readonly class="w-full border rounded-lg px-3 py-2 bg-gray-100">
+            <p class="text-xs text-gray-500">Tipe kuota tidak dapat diubah</p>
+          </div>
+
+          <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Jumlah Kuota</label>
             <input 
               v-model.number="editForm.kuota" 
@@ -309,7 +354,7 @@
         <h3 class="text-xl font-bold text-red-600 mb-2">Hapus Kuota?</h3>
         
         <p class="text-gray-600 mb-4">
-          Kuota <strong>{{ formatMonthYear(deletingItem.bulan, deletingItem.tahun) }}</strong> akan dihapus permanen.
+          Kuota <strong>{{ formatMonthYear(deletingItem.bulan, deletingItem.tahun) }} - {{ (deletingItem.tipe_kuota || 'umum').toUpperCase() }}</strong> akan dihapus permanen.
         </p>
         
         <div v-if="deletingItem.terdaftar > 0" class="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
@@ -353,10 +398,11 @@ import {
   toDateTimeLocal,
   fromDateTimeLocal
 } from '../../composables/useKuota'
-import { formatWIB } from '../../lib/supabase' // ⭐ Import langsung dari supabase.js
+import { formatWIB } from '../../lib/supabase'
 
 const kuotaList = ref([])
 const loading = ref(false)
+const filterTipe = ref('all')
 
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
@@ -364,6 +410,7 @@ const showDeleteModal = ref(false)
 const checkingExists = ref(false)
 
 const form = ref({
+  tipe_kuota: 'umum',
   bulan: new Date().getMonth() + 1,
   tahun: new Date().getFullYear(),
   kuota: 100,
@@ -396,6 +443,11 @@ const isEditValid = computed(() => {
   return editForm.value.kuota && editForm.value.kuota >= minKuota
 })
 
+const filteredKuotaList = computed(() => {
+  if (filterTipe.value === 'all') return kuotaList.value
+  return kuotaList.value.filter(k => k.tipe_kuota === filterTipe.value)
+})
+
 const formatMonthYear = (bulan, tahun) => {
   return `${months[bulan - 1]} ${tahun}`
 }
@@ -411,10 +463,7 @@ const fetchKuotaList = async () => {
   loading.value = true
   try {
     const result = await getAllKuota(user.value?.rptra_id)
-    
-    // ⭐ FIX: Force reactive update dengan spread
     kuotaList.value = [...result]
-    
     console.log('DEBUG kuotaList:', kuotaList.value)
   } catch (err) {
     console.error('Error fetching kuota:', err)
@@ -428,6 +477,7 @@ const fetchKuotaList = async () => {
 const openCreateModal = () => {
   const now = new Date()
   form.value = {
+    tipe_kuota: 'umum',
     bulan: now.getMonth() + 1,
     tahun: now.getFullYear(),
     kuota: 100,
@@ -445,24 +495,20 @@ const closeCreateModal = () => {
 const submitCreate = async () => {
   checkingExists.value = true
   try {
-    // ⭐ HAPUS checkKuotaExists dengan rptra_id, pindah ke useKuota
-    // atau biarin aja untuk cek duplikat
-    
-    const exists = await checkKuotaExists(user.value.rptra_id, form.value.bulan, form.value.tahun)
+    const exists = await checkKuotaExists(user.value.rptra_id, form.value.bulan, form.value.tahun, form.value.tipe_kuota)
     if (exists) {
-      alert(`Kuota untuk ${formatMonthYear(form.value.bulan, form.value.tahun)} sudah ada!`)
+      alert(`Kuota ${form.value.tipe_kuota.toUpperCase()} untuk ${formatMonthYear(form.value.bulan, form.value.tahun)} sudah ada!`)
       return
     }
 
-    // ⭐ FIX: Jangan include rptra_id di sini, biar useKuota yang handle
     const kuotaData = {
       bulan: form.value.bulan,
       tahun: form.value.tahun,
       kuota: form.value.kuota,
+      tipe_kuota: form.value.tipe_kuota,
       dibuka: form.value.dibuka,
       target_open_time: form.value.target_open_time ? fromDateTimeLocal(form.value.target_open_time) : null,
       target_close_time: form.value.target_close_time ? fromDateTimeLocal(form.value.target_close_time) : null
-      // ⭐ HAPUS: rptra_id: user.value.rptra_id
     }
 
     const newKuota = await createKuota(kuotaData)
@@ -563,7 +609,7 @@ const downloadQR = (item) => {
   
   const a = document.createElement('a')
   a.href = item.qr_form_url
-  a.download = `qr-pendaftaran-${item.bulan}-${item.tahun}.png`
+  a.download = `qr-pendaftaran-${item.bulan}-${item.tahun}-${item.tipe_kuota || 'umum'}.png`
   a.target = '_blank'
   a.click()
 }

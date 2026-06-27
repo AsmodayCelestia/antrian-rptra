@@ -39,13 +39,11 @@ export const syncServerTime = async () => {
 }
 
 export const getTrustedTime = () => {
-  // Kalo belum pernah sync, fallback ke Date.now() tapi log warning
   if (lastSyncTime === 0) {
     console.warn('[SECURITY] Server time not synced yet, using client time as fallback')
     return Date.now()
   }
   
-  // Kalo sync udah lama, tetep pake offset tapi log warning
   const timeSinceLastSync = Date.now() - lastSyncTime
   if (timeSinceLastSync > SYNC_INTERVAL_MS) {
     console.warn('[SECURITY] Server time sync stale (>5min), offset might be inaccurate')
@@ -58,7 +56,6 @@ export const ensureTimeSynced = async () => {
   if (lastSyncTime === 0) {
     return await syncServerTime()
   }
-  // Re-sync kalau udah lama
   if (Date.now() - lastSyncTime > SYNC_INTERVAL_MS) {
     return await syncServerTime()
   }
@@ -69,20 +66,17 @@ export const ensureTimeSynced = async () => {
 syncServerTime().catch(() => {})
 
 // ============================================
-// TIMEZONE JAKARTA HELPERS (Updated to use server time)
+// TIMEZONE JAKARTA HELPERS
 // ============================================
 
-// WIB = UTC+7
 const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000
 
-// Get waktu sekarang di Jakarta sebagai Date object (menggunakan server time)
 export const getJakartaTime = () => {
   const trustedNow = getTrustedTime()
   const utc = trustedNow + (new Date().getTimezoneOffset() * 60000)
   return new Date(utc + JAKARTA_OFFSET_MS)
 }
 
-// Format Date ke datetime-local input (YYYY-MM-DDTHH:mm) dalam WIB
 export const toDateTimeLocal = (date) => {
   if (!date) return ''
   const d = typeof date === 'string' ? new Date(date) : date
@@ -99,7 +93,6 @@ export const toDateTimeLocal = (date) => {
   return `${year}-${month}-${day}T${hours}:${minutes}`
 }
 
-// Parse datetime-local input (WIB) ke ISO string UTC untuk database
 export const fromDateTimeLocal = (input) => {
   if (!input) return null
   
@@ -111,7 +104,6 @@ export const fromDateTimeLocal = (input) => {
   return new Date(utcTimestamp).toISOString()
 }
 
-// Format ISO string UTC dari database ke tampilan WIB
 export const formatWIB = (isoString) => {
   if (!isoString) return '-'
   
@@ -127,7 +119,6 @@ export const formatWIB = (isoString) => {
   }) + ' WIB'
 }
 
-// Cek apakah waktu sekarang dalam range (menggunakan server time)
 export const isNowInRange = (startIso, endIso) => {
   const now = getTrustedTime()
   const start = new Date(startIso).getTime()

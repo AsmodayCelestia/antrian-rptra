@@ -3,13 +3,13 @@ import { user, canViewAllRptra } from './useAuth'
 
 export { toDateTimeLocal, fromDateTimeLocal }
 
-// GET all kuota - tetep pake direct query karena RLS udah mati
-export const getAllKuota = async (rptraId = null) => {
+export const getAllKuota = async (rptraId = null, tipeKuota = null) => {
   let query = supabase
     .from('kuota_bulanan')
     .select('*, rptra(nama)')
     .order('tahun', { ascending: false })
     .order('bulan', { ascending: false })
+    .order('tipe_kuota', { ascending: true })
 
   if (!canViewAllRptra()) {
     const strictRptraId = rptraId || user.value?.rptra_id
@@ -19,6 +19,10 @@ export const getAllKuota = async (rptraId = null) => {
     query = query.eq('rptra_id', strictRptraId)
   } else if (rptraId) {
     query = query.eq('rptra_id', rptraId)
+  }
+
+  if (tipeKuota) {
+    query = query.eq('tipe_kuota', tipeKuota)
   }
 
   const { data: kuotas, error } = await query
@@ -43,7 +47,6 @@ export const getAllKuota = async (rptraId = null) => {
   return kuotaWithCount
 }
 
-// GET single kuota
 export const getKuotaById = async (id) => {
   const { data, error } = await supabase
     .from('kuota_bulanan')
@@ -55,7 +58,6 @@ export const getKuotaById = async (id) => {
   return data
 }
 
-// CEK SCHEDULE DAN AUTO OPEN (menggunakan server time)
 export const checkAndTriggerOpen = async (kuotaId) => {
   const { data: kuota, error } = await supabase
     .from('kuota_bulanan')
@@ -71,7 +73,6 @@ export const checkAndTriggerOpen = async (kuotaId) => {
     return { opened: false, kuota, reason: 'no_schedule' }
   }
   
-  // ⭐ FIX: Pake server time, bukan client time
   await ensureTimeSynced()
   const now = getTrustedTime()
   
@@ -109,19 +110,13 @@ export const checkAndTriggerOpen = async (kuotaId) => {
   return { opened: false, kuota, reason: 'unknown' }
 }
 
-// CREATE kuota - auto-set rptra_id dari user
 export const createKuota = async (kuotaData) => {
-  console.log('=== DEBUG createKuota ===')
-  console.log('user.value?.rptra_id:', user.value?.rptra_id)
-
   const insertData = { ...kuotaData }
   
   if (!canViewAllRptra()) {
     insertData.rptra_id = user.value?.rptra_id
   }
   
-  console.log('insertData:', insertData)
-
   if (!insertData.rptra_id) {
     throw new Error('RPTRA ID wajib diisi')
   }
@@ -139,7 +134,6 @@ export const createKuota = async (kuotaData) => {
   return data
 }
 
-// UPDATE kuota - verify access dulu
 export const updateKuota = async (id, updateData) => {
   const { data, error } = await supabase
     .from('kuota_bulanan')
@@ -152,7 +146,6 @@ export const updateKuota = async (id, updateData) => {
   return data
 }
 
-// DELETE kuota
 export const deleteKuota = async (id) => {
   await supabase.from('antrian').delete().eq('kuota_id', id)
   const { error } = await supabase.from('kuota_bulanan').delete().eq('id', id)
@@ -160,39 +153,37 @@ export const deleteKuota = async (id) => {
   return true
 }
 
-// TOGGLE status manual
 export const toggleKuotaStatus = async (id, currentStatus) => {
   return updateKuota(id, { dibuka: !currentStatus })
 }
 
-// CHECK exists
-export const checkKuotaExists = async (rptraId, bulan, tahun) => {
+export const checkKuotaExists = async (rptraId, bulan, tahun, tipeKuota = 'umum') => {
   const { data, error } = await supabase
     .from('kuota_bulanan')
     .select('id')
     .eq('rptra_id', rptraId)
     .eq('bulan', bulan)
     .eq('tahun', tahun)
+    .eq('tipe_kuota', tipeKuota)
     .limit(1)
 
   if (error) throw error
   return data && data.length > 0
 }
 
-// GET current month kuota
-export const getCurrentKuota = async (rptraId) => {
+export const getCurrentKuota = async (rptraId, tipeKuota = 'umum') => {
   const now = new Date()
-  return getKuotaByQuery(rptraId, now.getMonth() + 1, now.getFullYear())
+  return getKuotaByQuery(rptraId, now.getMonth() + 1, now.getFullYear(), tipeKuota)
 }
 
-// GET by query
-export const getKuotaByQuery = async (rptraId, bulan, tahun) => {
+export const getKuotaByQuery = async (rptraId, bulan, tahun, tipeKuota = 'umum') => {
   const { data, error } = await supabase
     .from('kuota_bulanan')
     .select('*, rptra(*)')
     .eq('rptra_id', rptraId)
     .eq('bulan', bulan)
     .eq('tahun', tahun)
+    .eq('tipe_kuota', tipeKuota)
     .maybeSingle()
 
   if (error) return null

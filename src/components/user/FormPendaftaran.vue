@@ -21,6 +21,9 @@
         <h2 class="text-xl font-bold text-gray-800">Formulir Pendaftaran</h2>
         <p class="text-sm text-gray-500 mt-1">
           {{ rptraData?.nama || 'RPTRA' }} - {{ rptraConfig?.kelurahan || 'Loading...' }}
+          <span v-if="kuotaTipe === 'pjlp'" class="ml-2 inline-block bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">
+            🏢 PJLP
+          </span>
         </p>
       </div>
       
@@ -54,10 +57,9 @@
             readonly
             class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
           >
-          <p class="text-gray-400 text-xs mt-1">Otomatis terisi sesuai lokasi RPTRA</p>
         </div>
 
-        <!-- Kartu Pemanfaat (Dynamic dari config) -->
+        <!-- Kartu Pemanfaat (Dynamic dari config + tipe kuota) -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">
             Kartu Pemanfaat <span class="text-red-500">*</span>
@@ -82,7 +84,6 @@
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">
             Alamat Kartu Keluarga <span class="text-red-500">*</span>
-            <span v-if="isPJLP" class="text-blue-600 font-normal text-xs ml-1">(PJLP: Bebas wilayah)</span>
           </label>
           <textarea 
             v-model="form.alamat" 
@@ -93,14 +94,11 @@
               'w-full px-4 py-2 border rounded-lg focus:ring-2 outline-none transition-all resize-none',
               errors.alamat ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'
             ]"
-            :placeholder="isPJLP ? `Contoh: Jl. Sudirman No 1, Jakarta` : `Contoh: Jl. example No 01`"
+            :placeholder="isPJLP ? `Contoh: Jl. example No 01` : `Contoh: Jl. example No 01`"
           ></textarea>
           <p v-if="errors.alamat" class="text-red-500 text-xs mt-1">{{ errors.alamat }}</p>
-          <p v-else-if="!isPJLP" class="text-gray-400 text-xs mt-1">
-            <span v-if="jalanKhasList.length"></span>
-          </p>
           <p v-else class="text-blue-600 text-xs mt-1">
-            PJLP dapat mengisi alamat di luar {{ rptraConfig?.kelurahan }}
+            Wajib memilih kartu terlebih dahulu sebelum mengisi alamat
           </p>
         </div>
 
@@ -277,16 +275,14 @@
       </button>
     </div>
 
-    <!-- ⭐ MODAL KONFIRMASI DATA - VERSI RAPI -->
+    <!-- Modal Konfirmasi -->
     <div v-if="showConfirmModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-md">
-        <!-- Header -->
         <div class="bg-yellow-500 text-white p-4 rounded-t-xl">
           <h3 class="text-lg font-bold text-center">⚠️ Konfirmasi Data</h3>
         </div>
         
         <div class="p-6 space-y-4">
-          <!-- Peringatan -->
           <div>
             <p class="font-semibold text-gray-800 mb-3 text-sm">Pastikan data yang Anda isi sudah benar:</p>
             <ul class="space-y-2 text-sm text-gray-700">
@@ -310,7 +306,6 @@
             </div>
           </div>
 
-          <!-- Summary Data -->
           <div class="border rounded-lg p-4 bg-gray-50">
             <h4 class="font-bold text-gray-800 mb-3 pb-2 border-b text-sm">Data Pendaftaran</h4>
             
@@ -346,7 +341,6 @@
             </div>
           </div>
 
-          <!-- Actions -->
           <div class="flex gap-3 pt-2">
             <button 
               @click="showConfirmModal = false"
@@ -377,6 +371,7 @@
 import { reactive, ref, computed, onMounted, watch } from 'vue'
 import { generateNomorAntrian, checkKKExists } from '../../composables/useAntrian'
 import { useRPTRA } from '../../composables/useRPTRA'
+import { getKuotaById } from '../../composables/useKuota'
 
 const props = defineProps({
   kuotaId: {
@@ -391,7 +386,6 @@ const props = defineProps({
 
 const emit = defineEmits(['success'])
 
-// Instance-based useRPTRA
 const { 
   config: rptraConfig, 
   data: rptraData, 
@@ -413,6 +407,7 @@ const submitError = ref('')
 const showConfirmModal = ref(false)
 const kkExists = ref(false)
 const kkExistsData = ref(null)
+const kuotaTipe = ref('umum')
 
 const form = reactive({
   email: '',
@@ -440,12 +435,10 @@ const errors = reactive({
   whatsapp: ''
 })
 
-// Config ready check
 const configReady = computed(() => {
   return rptraConfig.value?.kelurahan && rptraConfig.value?.kelurahan !== 'Unknown'
 })
 
-// Watch rptraId dan load config
 watch(() => props.rptraId, async (newRptraId) => {
   if (newRptraId) {
     console.log('Loading config for RPTRA:', newRptraId)
@@ -457,20 +450,18 @@ watch(() => props.rptraId, async (newRptraId) => {
   }
 }, { immediate: true })
 
-// Computed
 const isPJLP = computed(() => form.kartu_pemanfaat === 'PJLP')
 
 const validKartuList = computed(() => {
-  return getValidKartu()
+  const allKartu = getValidKartu()
+  if (kuotaTipe.value === 'pjlp') {
+    return allKartu.filter(k => k === 'PJLP')
+  }
+  return allKartu.filter(k => k !== 'PJLP')
 })
 
-const rwOptions = computed(() => {
-  return getRWOptions()
-})
-
-const jalanKhasList = computed(() => {
-  return getJalanKhas()
-})
+const rwOptions = computed(() => getRWOptions())
+const jalanKhasList = computed(() => getJalanKhas())
 
 const jalanKhasExample = computed(() => {
   const list = jalanKhasList.value
@@ -489,7 +480,6 @@ const rwRangeText = computed(() => {
   return `${rules.rw_min || 1}-${rules.rw_max || 20}`
 })
 
-// Methods
 const formatRWValue = (num) => {
   const rules = rptraConfig.value?.alamat_rules
   const maxRW = rules?.rw_max || 12
@@ -502,18 +492,15 @@ const formatRT = () => {
   form.rt = cleaned
 }
 
-// ⭐ KHUSUS NOMOR KK (tetep 16 digit)
 const sanitizeKK = () => {
   form.nomor_kk = form.nomor_kk.replace(/\D/g, '').slice(0, 16)
   kkExists.value = false
   kkExistsData.value = null
 }
 
-// ⭐ KHUSUS NOMOR ATM (16-18 digit)
 const sanitizeATM = () => {
   form.nomor_atm = form.nomor_atm.replace(/\D/g, '').slice(0, 18)
 }
-
 
 const sanitizeWhatsApp = () => {
   let cleaned = form.whatsapp.replace(/\D/g, '')
@@ -536,7 +523,6 @@ const onKartuChange = () => {
   }
 }
 
-// Validators
 const validators = {
   email: (val) => {
     if (!val) return ''
@@ -551,8 +537,13 @@ const validators = {
   
   kartu_pemanfaat: (val) => {
     if (!val) return 'Pilih kartu pemanfaat'
-    const validList = getValidKartu()
-    if (!validList.includes(val)) return 'Kartu tidak tersedia untuk RPTRA ini'
+    const validList = validKartuList.value
+    if (!validList.includes(val)) {
+      if (kuotaTipe.value === 'pjlp') {
+        return 'Kuota ini khusus untuk PJLP'
+      }
+      return 'Kartu PJLP tidak tersedia di kuota umum. Silakan pilih kuota PJLP.'
+    }
     return ''
   },
   
@@ -625,7 +616,6 @@ const validateAll = () => {
   return isValid
 }
 
-// ⭐ HANDLE SUBMIT: Tampilkan modal konfirmasi dulu
 const handleSubmit = async () => {
   submitError.value = ''
   kkExists.value = false
@@ -636,16 +626,13 @@ const handleSubmit = async () => {
     return
   }
   
-  // Tampilkan modal konfirmasi
   showConfirmModal.value = true
 }
 
-// ⭐ CONFIRM SUBMIT: Execute ke database
 const confirmSubmit = async () => {
   loading.value = true
   
   try {
-    // Cek ulang KK exists (antisipasi race condition)
     const checkData = await checkKKExists(form.nomor_kk, props.kuotaId)
     
     if (checkData) {
@@ -671,10 +658,7 @@ const confirmSubmit = async () => {
       kuota_id: props.kuotaId,
       rptra_id: props.rptraId
     })
-        console.log('=== FORM SUCCESS ===')
-    console.log('Data returned:', data)
-    console.log('Data ID:', data?.id)
-    console.log('Data nomor_antrian:', data?.nomor_antrian)
+    
     showConfirmModal.value = false
     emit('success', data.id)
   } catch (err) {
@@ -685,9 +669,10 @@ const confirmSubmit = async () => {
   }
 }
 
-// Init debug
-onMounted(() => {
-  console.log('FormPendaftaran mounted')
-  console.log('Props:', props)
+onMounted(async () => {
+  const kuota = await getKuotaById(props.kuotaId)
+  if (kuota?.tipe_kuota) {
+    kuotaTipe.value = kuota.tipe_kuota
+  }
 })
 </script>

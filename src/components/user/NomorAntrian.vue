@@ -18,10 +18,10 @@
         </span>
       </div>
       
-      <h2 class="text-gray-600 mb-2">Nomor Antrian Anda</h2>
+      <!-- <h2 class="text-gray-600 mb-2">Nomor Antrian Anda</h2>
       <div class="text-6xl font-bold text-blue-600 mb-6">
         {{ antrian?.nomor_antrian?.toString().padStart(3, '0') }}
-      </div>
+      </div> -->
       
       <!-- QR Code -->
       <div class="bg-gray-50 p-6 rounded-xl mb-6 inline-block">
@@ -72,12 +72,12 @@
           <span class="text-gray-600">WhatsApp:</span>
           <span class="font-medium">{{ antrian?.whatsapp }}</span>
         </div>
-        <div class="flex justify-between">
+        <!-- <div class="flex justify-between">
           <span class="text-gray-600">Status:</span>
           <span :class="statusClass" class="font-medium px-2 py-0.5 rounded text-xs">
             {{ antrian?.status?.toUpperCase() }}
           </span>
-        </div>
+        </div> -->
       </div>
       
       <div class="space-y-3">
