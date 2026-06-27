@@ -1,4 +1,4 @@
-import { supabase, toDateTimeLocal, fromDateTimeLocal } from '../lib/supabase'
+import { supabase, toDateTimeLocal, fromDateTimeLocal, ensureTimeSynced, getTrustedTime } from '../lib/supabase'
 import { user, canViewAllRptra } from './useAuth'
 
 export { toDateTimeLocal, fromDateTimeLocal }
@@ -11,7 +11,6 @@ export const getAllKuota = async (rptraId = null) => {
     .order('tahun', { ascending: false })
     .order('bulan', { ascending: false })
 
-  // Filter di frontend aja, gak masalah buat internal
   if (!canViewAllRptra()) {
     const strictRptraId = rptraId || user.value?.rptra_id
     if (!strictRptraId) {
@@ -27,7 +26,6 @@ export const getAllKuota = async (rptraId = null) => {
 
   if (!kuotas || kuotas.length === 0) return []
 
-  // Hitung terdaftar
   const kuotaWithCount = await Promise.all(
     kuotas.map(async (k) => {
       const { count } = await supabase
@@ -57,7 +55,7 @@ export const getKuotaById = async (id) => {
   return data
 }
 
-// CEK SCHEDULE DAN AUTO OPEN
+// CEK SCHEDULE DAN AUTO OPEN (menggunakan server time)
 export const checkAndTriggerOpen = async (kuotaId) => {
   const { data: kuota, error } = await supabase
     .from('kuota_bulanan')
@@ -73,7 +71,10 @@ export const checkAndTriggerOpen = async (kuotaId) => {
     return { opened: false, kuota, reason: 'no_schedule' }
   }
   
-  // Parse WIB time
+  // ⭐ FIX: Pake server time, bukan client time
+  await ensureTimeSynced()
+  const now = getTrustedTime()
+  
   const openTimeStr = kuota.target_open_time.endsWith('Z') 
     ? kuota.target_open_time 
     : kuota.target_open_time + 'Z'
@@ -81,7 +82,6 @@ export const checkAndTriggerOpen = async (kuotaId) => {
     ? kuota.target_close_time
     : kuota.target_close_time + 'Z'
   
-  const now = Date.now()
   const openTime = new Date(openTimeStr).getTime()
   const closeTime = new Date(closeTimeStr).getTime()
   
@@ -116,7 +116,6 @@ export const createKuota = async (kuotaData) => {
 
   const insertData = { ...kuotaData }
   
-  // Auto-set rptra_id kalau bukan moderator
   if (!canViewAllRptra()) {
     insertData.rptra_id = user.value?.rptra_id
   }

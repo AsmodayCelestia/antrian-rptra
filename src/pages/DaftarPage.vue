@@ -48,11 +48,6 @@
         <div class="bg-blue-600 text-white rounded-xl p-6 mb-6 text-center">
           <h1 class="text-2xl font-bold mb-2">Pendaftaran Antrian</h1>
           <p class="text-blue-100">{{ kuota.rptra?.nama }}</p>
-          <!-- <p class="font-medium text-lg">{{ formatMonthYear(kuota.bulan, kuota.tahun) }}</p>
-          
-          <div v-if="kuota.target_close_time" class="mt-3 bg-white/20 rounded-lg p-2 text-sm">
-            ⏰ Ditutup otomatis: {{ formatWIB(kuota.target_close_time) }}
-          </div> -->
         </div>
 
         <FormPendaftaran
@@ -238,7 +233,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getKuotaById, checkAndTriggerOpen } from '../composables/useKuota'
 import { formatWIB } from '../lib/supabase'
-import { supabase } from '../lib/supabase'
+import { supabase, ensureTimeSynced, getTrustedTime } from '../lib/supabase'
 import FormPendaftaran from '../components/user/FormPendaftaran.vue'
 
 const route = useRoute()
@@ -299,20 +294,24 @@ const closeModal = () => {
   }
 }
 
-// ⭐ FUNGSI BARU: Cek apakah sudah lewat close time - FIX: sama dengan useAntrian
-const checkAlreadyClosed = (kuotaData) => {
+// ⭐ FIX: Cek apakah sudah lewat close time - menggunakan server time
+const checkAlreadyClosed = async (kuotaData) => {
   if (!kuotaData.target_close_time) return false
   
-  // Database simpan UTC tanpa Z, kita append Z supaya parse sebagai UTC
+  await ensureTimeSynced()
+  const now = getTrustedTime()
+  
   const closeTimeStr = kuotaData.target_close_time + 'Z'
   const closeTime = new Date(closeTimeStr).getTime()
-  const now = Date.now()
   
   return now > closeTime
 }
 
 onMounted(async () => {
   try {
+    // ⭐ FIX: Sync server time dulu sebelum semua pengecekan
+    await ensureTimeSynced()
+    
     const data = await getKuotaById(kuotaId)
     kuota.value = data
 
@@ -335,9 +334,8 @@ onMounted(async () => {
       return
     }
 
-    // ⭐ CEK: Sudah lewat close time tapi masih dibuka secara manual
-    if (data.dibuka && checkAlreadyClosed(data)) {
-      // Auto close
+    // ⭐ FIX: await karena sekarang async
+    if (data.dibuka && await checkAlreadyClosed(data)) {
       await supabase
         .from('kuota_bulanan')
         .update({ dibuka: false })
@@ -348,8 +346,7 @@ onMounted(async () => {
       return
     }
 
-    // ⭐ CEK: Sudah lewat close time dan memang tertutup
-    if (!data.dibuka && checkAlreadyClosed(data)) {
+    if (!data.dibuka && await checkAlreadyClosed(data)) {
       scheduleStatus.value = 'already_closed'
       loading.value = false
       return

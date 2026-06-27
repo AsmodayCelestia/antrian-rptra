@@ -1,5 +1,5 @@
 import { canViewAllRptra, user, isModerator } from './useAuth'
-import { supabase } from '../lib/supabase'
+import { supabase, ensureTimeSynced, getTrustedTime } from '../lib/supabase'
 
 // Helper: Cek akses RPTRA
 const verifyRptraAccess = (antrianData) => {
@@ -7,7 +7,7 @@ const verifyRptraAccess = (antrianData) => {
   return antrianData?.rptra_id === user.value?.rptra_id
 }
 
-// GENERATE NOMOR ANTRIAN (User Publik)
+// GENERATE NOMOR ANTRIAN (User Publik) - ⭐ CRITICAL FIX
 export const generateNomorAntrian = async (formData) => {
   const { kuota_id, rptra_id } = formData
 
@@ -19,16 +19,28 @@ export const generateNomorAntrian = async (formData) => {
   
   if (kuotaError || !kuota) throw new Error('Kuota tidak ditemukan')
   
-  // Verify kuota match rptra
   if (kuota.rptra_id !== rptra_id) {
     throw new Error('Data kuota tidak valid')
   }
   
-  // Cek waktu tutup
+  // ⭐ FIX: Pake server time untuk semua pengecekan waktu
+  await ensureTimeSynced()
+  const now = getTrustedTime()
+  
+  // Cek waktu BUKA (jangan cuma tutup!)
+  if (kuota.target_open_time) {
+    const openTimeStr = kuota.target_open_time + 'Z'
+    const openTime = new Date(openTimeStr).getTime()
+    
+    if (now < openTime) {
+      throw new Error('Pendaftaran belum dibuka')
+    }
+  }
+  
+  // Cek waktu TUTUP
   if (kuota.target_close_time) {
     const closeTimeStr = kuota.target_close_time + 'Z'
     const closeTime = new Date(closeTimeStr).getTime()
-    const now = Date.now()
     
     if (now > closeTime) {
       await supabase
@@ -120,7 +132,6 @@ export const checkKKExists = async (nomor_kk, kuota_id) => {
 
 // Update status antrian - dengan ownership check
 export const updateStatusAntrian = async (id, status, alasan = null) => {
-  // ⭐ FIX: Get data dulu untuk cek ownership
   const { data: antrian, error: fetchError } = await supabase
     .from('antrian')
     .select('rptra_id')
@@ -129,7 +140,6 @@ export const updateStatusAntrian = async (id, status, alasan = null) => {
   
   if (fetchError || !antrian) throw new Error('Data antrian tidak ditemukan')
   
-  // ⭐ FIX: Cek akses RPTRA
   if (!verifyRptraAccess(antrian)) {
     throw new Error('Data antrian tidak ditemukan')
   }
@@ -158,7 +168,6 @@ export const getAllAntrian = async () => {
     .select('*, rptra(nama), kuota_bulanan(bulan, tahun), nomor_kk, nomor_atm')
     .order('created_at', { ascending: false })
   
-  // Filter untuk admin/staff
   if (!canViewAllRptra()) {
     if (!user.value?.rptra_id) {
       throw new Error('Session tidak valid - RPTRA ID tidak ditemukan')
@@ -172,7 +181,6 @@ export const getAllAntrian = async () => {
 }
 
 // Get antrian by ID - dengan ownership check
-// Di useAntrian.js - getAntrianById
 export const getAntrianById = async (id, isPublic = false) => {
   const { data, error } = await supabase
     .from('antrian')
@@ -182,7 +190,6 @@ export const getAntrianById = async (id, isPublic = false) => {
   
   if (error) throw error
   
-  // ⭐ FIX: Kalo public access (user ga login), skip ownership check
   if (!isPublic && !verifyRptraAccess(data)) {
     return null
   }
@@ -220,7 +227,6 @@ export const getStats = async () => {
     .from('antrian')
     .select('status')
   
-  // Filter untuk admin/staff
   if (!canViewAllRptra()) {
     if (!user.value?.rptra_id) {
       throw new Error('Session tidak valid')
@@ -253,7 +259,6 @@ export const validateQR = async (nomor, kuota_id) => {
     return { valid: false, message: 'Nomor antrian tidak ditemukan' }
   }
   
-  // ⭐ FIX: Cek akses RPTRA (silent fail)
   if (!verifyRptraAccess(data)) {
     return { valid: false, message: 'Nomor antrian tidak ditemukan' }
   }
@@ -289,7 +294,6 @@ export const generateNomorAntrianAdmin = async (formData) => {
   
   if (kuotaError || !kuota) throw new Error('Kuota tidak ditemukan')
   
-  // ⭐ FIX: Cek akses RPTRA untuk admin
   if (!canViewAllRptra() && kuota.rptra_id !== user.value?.rptra_id) {
     throw new Error('Kuota tidak ditemukan')
   }
@@ -325,7 +329,7 @@ export const generateNomorAntrianAdmin = async (formData) => {
     .insert({
       nomor_antrian: nextNomor,
       kuota_id,
-      rptra_id: kuota.rptra_id, // Pake rptra dari kuota, bukan parameter
+      rptra_id: kuota.rptra_id,
       email: formData.email,
       kelurahan: formData.kelurahan,
       kartu_pemanfaat: formData.kartu_pemanfaat,
@@ -356,7 +360,6 @@ export const generateNomorAntrianAdmin = async (formData) => {
 
 // Update data antrian (untuk edit) - dengan ownership check
 export const updateAntrian = async (id, updateData) => {
-  // ⭐ FIX: Get data dulu untuk cek ownership
   const { data: antrian, error: fetchError } = await supabase
     .from('antrian')
     .select('rptra_id')
@@ -365,7 +368,6 @@ export const updateAntrian = async (id, updateData) => {
   
   if (fetchError || !antrian) throw new Error('Data antrian tidak ditemukan')
   
-  // ⭐ FIX: Cek akses RPTRA
   if (!verifyRptraAccess(antrian)) {
     throw new Error('Data antrian tidak ditemukan')
   }
