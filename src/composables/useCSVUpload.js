@@ -94,9 +94,10 @@ export const validateRow = (row, index, tipeKuota = 'umum') => {
     errors.push('Kuota PJLP - hanya PJLP yang dapat didaftarkan')
   }
   
-  if (tipeKuota === 'umum' && isPJLP) {
-    errors.push('Kuota Umum - PJLP wajib didaftarkan melalui kuota PJLP')
-  }
+  // ⭐ HAPUS: Block PJLP di kuota umum (sekarang diizinkan)
+  // if (tipeKuota === 'umum' && isPJLP) {
+  //   errors.push('Kuota Umum - PJLP wajib didaftarkan melalui kuota PJLP')
+  // }
 
   // Alamat (required)
   const alamat = row.alamat?.trim()
@@ -104,12 +105,13 @@ export const validateRow = (row, index, tipeKuota = 'umum') => {
     errors.push('Alamat wajib diisi')
   } else if (alamat.length < 10) {
     errors.push('Alamat minimal 10 karakter')
-  } else if (!isPJLP || !PJLP_BEBAS) {
-    // ⭐ Validasi jalan khas untuk non-PJLP (atau kalau PJLP tidak bebas)
+  } else if (!isPJLP || !PJLP_BEBAS || tipeKuota !== 'pjlp') {
+    // ⭐ FIX: PJLP hanya bebas kalau di kuota PJLP
+    // PJLP di kuota umum = harus jalan khas
     const lowerAlamat = alamat.toLowerCase()
     const hasJalanKhas = JALAN_KHAS.some(j => lowerAlamat.includes(j.toLowerCase()))
     if (!hasJalanKhas && JALAN_KHAS.length > 0) {
-      errors.push(`Alamat harus mengandung salah satu: ${JALAN_KHAS.join(', ')} (wajib untuk wilayah ${KELURAHAN})`)
+      errors.push(`Alamat tidak sesuai ketentuan (wajib untuk wilayah ${KELURAHAN})`)
     }
   }
  
@@ -354,7 +356,7 @@ export const useCSVUpload = () => {
     
     const sample = [
       `contoh@email.com,KJP,"Jl. ${exampleJalan} 2 Gang XX No 01",001,001,1234567890123456,1234567890123456,"Budi Santoso",081234567890`,
-      `,PJLP,"Jl. Sudirman No 1, Jakarta Pusat",005,002,9876543210987654,9876543210987654,"Ani Wijaya",082345678901`
+      `,PJLP,"Jl. ${exampleJalan} 3 No 5",005,002,9876543210987654,9876543210987654,"Ani Wijaya",082345678901`
     ]
     
     const csvContent = [headers.join(','), ...sample].join('\n')

@@ -158,7 +158,7 @@
             type="text"
             required
             maxlength="16"
-            @input="sanitizeKK('nomor_kk')"
+            @input="sanitizeKK"
             @blur="validateField('nomor_kk')"
             :class="[
               'w-full px-4 py-2 border rounded-lg focus:ring-2 outline-none transition-all',
@@ -182,7 +182,7 @@
             type="text"
             required
             maxlength="18"
-            @input="sanitizeATM('nomor_atm')"
+            @input="sanitizeATM"
             @blur="validateField('nomor_atm')"
             :class="[
               'w-full px-4 py-2 border rounded-lg focus:ring-2 outline-none transition-all',
@@ -452,12 +452,13 @@ watch(() => props.rptraId, async (newRptraId) => {
 
 const isPJLP = computed(() => form.kartu_pemanfaat === 'PJLP')
 
+// ⭐ FIX: Umum include PJLP juga
 const validKartuList = computed(() => {
   const allKartu = getValidKartu()
   if (kuotaTipe.value === 'pjlp') {
     return allKartu.filter(k => k === 'PJLP')
   }
-  return allKartu.filter(k => k !== 'PJLP')
+  return allKartu  // Umum: include semua kartu (termasuk PJLP)
 })
 
 const rwOptions = computed(() => getRWOptions())
@@ -542,15 +543,38 @@ const validators = {
       if (kuotaTipe.value === 'pjlp') {
         return 'Kuota ini khusus untuk PJLP'
       }
-      return 'Kartu PJLP tidak tersedia di kuota umum. Silakan pilih kuota PJLP.'
+      return 'Kartu tidak tersedia untuk RPTRA ini'
     }
     return ''
   },
   
+  // ⭐ FIX: PJLP di kuota umum = harus jalan khas
   alamat: (val) => {
     if (!val.trim()) return 'Alamat wajib diisi'
     if (val.length < 10) return 'Alamat terlalu pendek (min 10 karakter)'
     
+    const isPJLP = form.kartu_pemanfaat === 'PJLP'
+    const isKuotaUmum = kuotaTipe.value === 'umum'
+    
+    // PJLP di kuota umum = harus jalan khas (force)
+    // PJLP di kuota PJLP = bebas (sesuai config)
+    if (isPJLP && isKuotaUmum) {
+      const lowerAlamat = val.toLowerCase().trim()
+      const jalanKhas = getJalanKhas()
+      
+      if (jalanKhas.length === 0) {
+        return '' // ga ada jalan khas di config, aman
+      }
+      
+      const hasJalanKhas = jalanKhas.some(j => lowerAlamat.includes(j.toLowerCase()))
+      if (!hasJalanKhas) {
+        return `Alamat tidak sesuai ketentuan`
+      }
+      
+      return ''
+    }
+    
+    // Non-PJLP atau PJLP di kuota PJLP → pakai validateAlamat biasa
     const result = validateAlamat(val, form.kartu_pemanfaat)
     if (!result.valid) return result.error
     

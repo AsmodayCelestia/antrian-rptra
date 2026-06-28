@@ -31,9 +31,9 @@ export const generateNomorAntrian = async (formData) => {
     throw new Error('Kuota ini khusus untuk PJLP. Silakan pilih kuota umum.')
   }
   
-  if (kuota.tipe_kuota === 'umum' && formData.kartu_pemanfaat === 'PJLP') {
-    throw new Error('PJLP wajib mendaftar melalui kuota PJLP.')
-  }
+//   if (kuota.tipe_kuota === 'umum' && formData.kartu_pemanfaat === 'PJLP') {
+//     throw new Error('PJLP wajib mendaftar melalui kuota PJLP.')
+//   }
   
   if (kuota.target_open_time) {
     const openTimeStr = kuota.target_open_time + 'Z'

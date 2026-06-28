@@ -389,7 +389,7 @@ const rwOptions = computed(() => {
 })
 
 const jalanKhasList = computed(() => {
-  return getJalanKhasList()
+  return getJalanKhas()
 })
 
 const jalanKhasExample = computed(() => {
