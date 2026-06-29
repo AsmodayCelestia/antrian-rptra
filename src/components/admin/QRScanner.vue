@@ -91,7 +91,7 @@
                 {{ item.status }}
               </span>
             </div>
-            <div class="mt-2 text-xs text-gray-500 font-mono">
+            <div class="mt-2 text-xs text-gray-500 font-mono break-all">
               KK: {{ item.nomor_kk }} | ATM: {{ item.nomor_atm }}
             </div>
           </div>
@@ -133,34 +133,37 @@
 
       <!-- Detail Data -->
       <div class="p-6 space-y-4">
-        <div class="grid grid-cols-2 gap-4 text-sm">
-          <div>
+        <!-- ⭐ FIX: Responsive grid - 1 col mobile, 2 col desktop -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <div class="min-w-0">
             <p class="text-gray-500 text-xs uppercase">Nama Pemilik ATM</p>
-            <p class="font-semibold text-gray-800">{{ scannedData.nama_pemilik_atm }}</p>
+            <p class="font-semibold text-gray-800 truncate">{{ scannedData.nama_pemilik_atm }}</p>
           </div>
-          <div>
+          <div class="min-w-0">
             <p class="text-gray-500 text-xs uppercase">No. ATM</p>
-            <p class="font-semibold text-gray-800">{{ scannedData.nomor_atm }}</p>
+            <!-- ⭐ FIX: break-all + text-xs + tracking-wider for long numbers -->
+            <p class="font-semibold text-gray-800 break-all text-xs tracking-wider">{{ scannedData.nomor_atm }}</p>
           </div>
-          <div>
+          <div class="min-w-0">
             <p class="text-gray-500 text-xs uppercase">Kartu Pemanfaat</p>
             <p class="font-semibold text-gray-800">{{ scannedData.kartu_pemanfaat }}</p>
           </div>
-          <div>
+          <div class="min-w-0">
             <p class="text-gray-500 text-xs uppercase">Kelurahan</p>
             <p class="font-semibold text-gray-800">{{ scannedData.kelurahan }}</p>
           </div>
-          <div class="col-span-2">
+          <div class="min-w-0 sm:col-span-2">
             <p class="text-gray-500 text-xs uppercase">Alamat</p>
-            <p class="font-semibold text-gray-800">{{ scannedData.alamat }} RT {{ scannedData.rt }}/RW {{ scannedData.rw }}</p>
+            <p class="font-semibold text-gray-800 break-words">{{ scannedData.alamat }} RT {{ scannedData.rt }}/RW {{ scannedData.rw }}</p>
           </div>
-          <div>
+          <div class="min-w-0">
             <p class="text-gray-500 text-xs uppercase">WhatsApp</p>
-            <p class="font-semibold text-gray-800">{{ scannedData.whatsapp }}</p>
+            <p class="font-semibold text-gray-800 break-all">{{ scannedData.whatsapp }}</p>
           </div>
-          <div>
+          <div class="min-w-0">
             <p class="text-gray-500 text-xs uppercase">No. KK</p>
-            <p class="font-semibold text-gray-800">{{ scannedData.nomor_kk }}</p>
+            <!-- ⭐ FIX: break-all + text-xs + tracking-wider for long numbers -->
+            <p class="font-semibold text-gray-800 break-all text-xs tracking-wider">{{ scannedData.nomor_kk }}</p>
           </div>
         </div>
 
