@@ -601,17 +601,35 @@ const toggleStatus = async (item) => {
   }
 }
 
-const downloadQR = (item) => {
+// ⭐ FIX: Download QR dengan fetch blob (cross-origin support)
+const downloadQR = async (item) => {
   if (!item.qr_form_url) {
     alert('QR Code belum tersedia')
     return
   }
   
-  const a = document.createElement('a')
-  a.href = item.qr_form_url
-  a.download = `qr-pendaftaran-${item.bulan}-${item.tahun}-${item.tipe_kuota || 'umum'}.png`
-  a.target = '_blank'
-  a.click()
+  try {
+    // Fetch image dari Cloudinary, convert ke blob
+    const response = await fetch(item.qr_form_url)
+    if (!response.ok) throw new Error('Gagal mengambil gambar')
+    
+    const blob = await response.blob()
+    const blobUrl = URL.createObjectURL(blob)
+    
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = `qr-pendaftaran-${item.bulan}-${item.tahun}-${item.tipe_kuota || 'umum'}.png`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    
+    // Cleanup
+    URL.revokeObjectURL(blobUrl)
+  } catch (err) {
+    console.error('Download error:', err)
+    // Fallback: buka di tab baru kalau fetch gagal
+    window.open(item.qr_form_url, '_blank')
+  }
 }
 
 const copyLink = (item) => {
