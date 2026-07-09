@@ -26,14 +26,8 @@ export const generateNomorAntrian = async (formData) => {
   await ensureTimeSynced()
   const now = getTrustedTime()
   
-  // Validasi tipe kuota
-  if (kuota.tipe_kuota === 'pjlp' && formData.kartu_pemanfaat !== 'PJLP') {
-    throw new Error('Kuota ini khusus untuk PJLP. Silakan pilih kuota umum.')
-  }
-  
-//   if (kuota.tipe_kuota === 'umum' && formData.kartu_pemanfaat === 'PJLP') {
-//     throw new Error('PJLP wajib mendaftar melalui kuota PJLP.')
-//   }
+  // ⭐ HAPUS: Semua validasi tipe kuota vs kartu
+  // Validasi alamat & kartu sekarang di frontend
   
   if (kuota.target_open_time) {
     const openTimeStr = kuota.target_open_time + 'Z'
@@ -330,6 +324,9 @@ export const generateNomorAntrianAdmin = async (formData) => {
   if (!canViewAllRptra() && kuota.rptra_id !== user.value?.rptra_id) {
     throw new Error('Kuota tidak ditemukan')
   }
+  
+  // ⭐ HAPUS: Validasi tipe kuota vs kartu
+  // Sekarang di frontend
   
   // ⭐ CROSS-KUOTA CHECK: KK sudah terdaftar di bulan/tahun yang sama?
   const { data: existingKK } = await supabase

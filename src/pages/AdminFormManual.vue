@@ -115,7 +115,7 @@
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Alamat Kartu Keluarga <span class="text-red-500">*</span>
-              <span v-if="isPJLP" class="text-purple-600 font-normal text-xs ml-1">(PJLP: Bebas wilayah)</span>
+              <span v-if="kuotaTipe === 'pjlp'" class="text-green-600 font-normal text-xs ml-1">(Bebas wilayah)</span>
             </label>
             <textarea 
               v-model="form.alamat" 
@@ -126,15 +126,15 @@
                 'w-full px-4 py-2 border rounded-lg focus:ring-2 outline-none transition-all resize-none',
                 errors.alamat ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-purple-500'
               ]"
-              :placeholder="isPJLP ? `Contoh: Jl. Sudirman No 1, Jakarta` : `Contoh: Jl. ${jalanKhasExample} No 01`"
+              :placeholder="kuotaTipe === 'pjlp' ? `Contoh: Jl. Sudirman No 1, Jakarta` : `Contoh: Jl. ${jalanKhasExample} No 01`"
             ></textarea>
             <p v-if="errors.alamat" class="text-red-500 text-xs mt-1">{{ errors.alamat }}</p>
-            <p v-else-if="!isPJLP" class="text-gray-400 text-xs mt-1">
+            <p v-else-if="kuotaTipe !== 'pjlp'" class="text-gray-400 text-xs mt-1">
               Harus berada di wilayah {{ rptraConfig?.kelurahan }} 
               <span v-if="jalanKhasList.length">(mengandung: {{ jalanKhasList.join(', ') }})</span>
             </p>
-            <p v-else class="text-purple-600 text-xs mt-1">
-              PJLP dapat mengisi alamat di luar {{ rptraConfig?.kelurahan }}
+            <p v-else class="text-green-600 text-xs mt-1">
+              Bebas mengisi alamat di luar {{ rptraConfig?.kelurahan }}
             </p>
           </div>
 
@@ -194,7 +194,7 @@
               type="text"
               required
               maxlength="16"
-              @input="sanitizeKK('nomor_kk')"
+              @input="sanitizeKK"
               @blur="validateField('nomor_kk')"
               :class="[
                 'w-full px-4 py-2 border rounded-lg focus:ring-2 outline-none transition-all',
@@ -218,7 +218,7 @@
               type="text"
               required
               maxlength="18"
-              @input="sanitizeATM('nomor_atm')"
+              @input="sanitizeATM"
               @blur="validateField('nomor_atm')"
               :class="[
                 'w-full px-4 py-2 border rounded-lg focus:ring-2 outline-none transition-all',
@@ -350,6 +350,7 @@ const loading = ref(false)
 const submitError = ref('')
 const kkExists = ref(false)
 const kkExistsData = ref(null)
+const kuotaTipe = ref('umum')
 
 const form = reactive({
   email: '',
@@ -377,9 +378,7 @@ const errors = reactive({
   whatsapp: ''
 })
 
-// Computed dari config
-const isPJLP = computed(() => form.kartu_pemanfaat === 'PJLP')
-
+// ⭐ FIX: Semua kartu tersedia untuk semua tipe kuota
 const validKartuList = computed(() => {
   return getValidKartu()
 })
@@ -438,7 +437,6 @@ const sanitizeKK = () => {
   kkExistsData.value = null
 }
 
-// ⭐ KHUSUS NOMOR ATM (16-18 digit)
 const sanitizeATM = () => {
   form.nomor_atm = form.nomor_atm.replace(/\D/g, '').slice(0, 18)
 }
@@ -479,17 +477,33 @@ const validators = {
   
   kartu_pemanfaat: (val) => {
     if (!val) return 'Pilih kartu pemanfaat'
-    const validList = getValidKartu()
+    const validList = validKartuList.value
     if (!validList.includes(val)) return 'Kartu tidak tersedia untuk RPTRA ini'
     return ''
   },
   
+  // ⭐ FIX: Validasi alamat berdasarkan tipe kuota
   alamat: (val) => {
     if (!val.trim()) return 'Alamat wajib diisi'
     if (val.length < 10) return 'Alamat terlalu pendek (min 10 karakter)'
     
-    const result = validateAlamat(val, form.kartu_pemanfaat)
-    if (!result.valid) return result.error
+    // Kuota PJLP = bebas alamat untuk SEMUA kartu
+    if (kuotaTipe.value === 'pjlp') {
+      return ''
+    }
+    
+    // Kuota umum = harus jalan khas untuk SEMUA kartu (termasuk PJLP)
+    const lowerAlamat = val.toLowerCase().trim()
+    const jalanKhas = getJalanKhas()
+    
+    if (jalanKhas.length === 0) {
+      return '' // ga ada jalan khas di config, aman
+    }
+    
+    const hasJalanKhas = jalanKhas.some(j => lowerAlamat.includes(j.toLowerCase()))
+    if (!hasJalanKhas) {
+      return `Alamat tidak sesuai ketentuan`
+    }
     
     return ''
   },
@@ -616,6 +630,7 @@ onMounted(async () => {
     }
     
     kuota.value = data
+    kuotaTipe.value = data.tipe_kuota || 'umum'
     
     // Load RPTRA config untuk validasi alamat, RW, dll
     if (data.rptra_id) {

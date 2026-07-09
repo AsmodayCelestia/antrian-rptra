@@ -59,7 +59,7 @@
           >
         </div>
 
-        <!-- Kartu Pemanfaat (Dynamic dari config + tipe kuota) -->
+        <!-- Kartu Pemanfaat (Dynamic dari config) -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">
             Kartu Pemanfaat <span class="text-red-500">*</span>
@@ -84,6 +84,7 @@
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">
             Alamat Kartu Keluarga <span class="text-red-500">*</span>
+            <span v-if="kuotaTipe === 'pjlp'" class="text-green-600 font-normal text-xs ml-1"></span>
           </label>
           <textarea 
             v-model="form.alamat" 
@@ -94,11 +95,13 @@
               'w-full px-4 py-2 border rounded-lg focus:ring-2 outline-none transition-all resize-none',
               errors.alamat ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'
             ]"
-            :placeholder="isPJLP ? `Contoh: Jl. example No 01` : `Contoh: Jl. example No 01`"
+            :placeholder="kuotaTipe === 'pjlp' ? `Contoh: Jl. Example No 1, Jakarta` : `Contoh: Jl. Example No 01`"
           ></textarea>
           <p v-if="errors.alamat" class="text-red-500 text-xs mt-1">{{ errors.alamat }}</p>
-          <p v-else class="text-blue-600 text-xs mt-1">
-            Wajib memilih kartu terlebih dahulu sebelum mengisi alamat
+          <p v-else-if="kuotaTipe !== 'pjlp'" class="text-gray-400 text-xs mt-1">
+            <span v-if="jalanKhasList.length"></span>
+          </p>
+          <p v-else class="text-green-600 text-xs mt-1">
           </p>
         </div>
 
@@ -450,15 +453,9 @@ watch(() => props.rptraId, async (newRptraId) => {
   }
 }, { immediate: true })
 
-const isPJLP = computed(() => form.kartu_pemanfaat === 'PJLP')
-
-// ⭐ FIX: Umum include PJLP juga
+// ⭐ FIX: Semua kartu tersedia untuk semua tipe kuota
 const validKartuList = computed(() => {
-  const allKartu = getValidKartu()
-  if (kuotaTipe.value === 'pjlp') {
-    return allKartu.filter(k => k === 'PJLP')
-  }
-  return allKartu  // Umum: include semua kartu (termasuk PJLP)
+  return getValidKartu() // Tidak ada filter berdasarkan tipe kuota
 })
 
 const rwOptions = computed(() => getRWOptions())
@@ -539,44 +536,32 @@ const validators = {
   kartu_pemanfaat: (val) => {
     if (!val) return 'Pilih kartu pemanfaat'
     const validList = validKartuList.value
-    if (!validList.includes(val)) {
-      if (kuotaTipe.value === 'pjlp') {
-        return 'Kuota ini khusus untuk PJLP'
-      }
-      return 'Kartu tidak tersedia untuk RPTRA ini'
-    }
+    if (!validList.includes(val)) return 'Kartu tidak tersedia untuk RPTRA ini'
     return ''
   },
   
-  // ⭐ FIX: PJLP di kuota umum = harus jalan khas
+  // ⭐ FIX: Validasi alamat berdasarkan tipe kuota, bukan kartu
   alamat: (val) => {
     if (!val.trim()) return 'Alamat wajib diisi'
     if (val.length < 10) return 'Alamat terlalu pendek (min 10 karakter)'
     
-    const isPJLP = form.kartu_pemanfaat === 'PJLP'
-    const isKuotaUmum = kuotaTipe.value === 'umum'
-    
-    // PJLP di kuota umum = harus jalan khas (force)
-    // PJLP di kuota PJLP = bebas (sesuai config)
-    if (isPJLP && isKuotaUmum) {
-      const lowerAlamat = val.toLowerCase().trim()
-      const jalanKhas = getJalanKhas()
-      
-      if (jalanKhas.length === 0) {
-        return '' // ga ada jalan khas di config, aman
-      }
-      
-      const hasJalanKhas = jalanKhas.some(j => lowerAlamat.includes(j.toLowerCase()))
-      if (!hasJalanKhas) {
-        return `Alamat tidak sesuai ketentuan`
-      }
-      
+    // ⭐ FIX: Kuota PJLP = bebas alamat untuk SEMUA kartu
+    if (kuotaTipe.value === 'pjlp') {
       return ''
     }
     
-    // Non-PJLP atau PJLP di kuota PJLP → pakai validateAlamat biasa
-    const result = validateAlamat(val, form.kartu_pemanfaat)
-    if (!result.valid) return result.error
+    // Kuota umum = harus jalan khas untuk SEMUA kartu (termasuk PJLP)
+    const lowerAlamat = val.toLowerCase().trim()
+    const jalanKhas = getJalanKhas()
+    
+    if (jalanKhas.length === 0) {
+      return '' // ga ada jalan khas di config, aman
+    }
+    
+    const hasJalanKhas = jalanKhas.some(j => lowerAlamat.includes(j.toLowerCase()))
+    if (!hasJalanKhas) {
+      return `Alamat tidak sesuai ketentuan`
+    }
     
     return ''
   },

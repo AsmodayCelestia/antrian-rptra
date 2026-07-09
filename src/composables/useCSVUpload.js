@@ -70,7 +70,6 @@ export const validateRow = (row, index, tipeKuota = 'umum') => {
   const VALID_KARTU = getValidKartuFromConfig()
   const JALAN_KHAS = getJalanKhasFromConfig()
   const KELURAHAN = rptraConfig.value?.kelurahan || 'Unknown'
-  const PJLP_BEBAS = rptraConfig.value?.alamat_rules?.pjlp_bebas !== false
 
   // Email (optional)
   let email = row.email || ''
@@ -87,33 +86,24 @@ export const validateRow = (row, index, tipeKuota = 'umum') => {
     errors.push(`Kartu tidak valid. Pilihan: ${VALID_KARTU.join(', ')}`)
   }
   
-  // ⭐ VALIDASI TIPE KUOTA
-  const isPJLP = kartu === 'PJLP'
+  // ⭐ HAPUS: Validasi tipe kuota vs kartu
+  // Semua kartu boleh di semua tipe kuota
   
-  if (tipeKuota === 'pjlp' && !isPJLP) {
-    errors.push('Kuota PJLP - hanya PJLP yang dapat didaftarkan')
-  }
-  
-  // ⭐ HAPUS: Block PJLP di kuota umum (sekarang diizinkan)
-  // if (tipeKuota === 'umum' && isPJLP) {
-  //   errors.push('Kuota Umum - PJLP wajib didaftarkan melalui kuota PJLP')
-  // }
-
   // Alamat (required)
   const alamat = row.alamat?.trim()
   if (!alamat) {
     errors.push('Alamat wajib diisi')
   } else if (alamat.length < 10) {
     errors.push('Alamat minimal 10 karakter')
-  } else if (!isPJLP || !PJLP_BEBAS || tipeKuota !== 'pjlp') {
-    // ⭐ FIX: PJLP hanya bebas kalau di kuota PJLP
-    // PJLP di kuota umum = harus jalan khas
+  } else if (tipeKuota !== 'pjlp') {
+    // ⭐ FIX: Kuota umum = harus jalan khas untuk SEMUA kartu
     const lowerAlamat = alamat.toLowerCase()
     const hasJalanKhas = JALAN_KHAS.some(j => lowerAlamat.includes(j.toLowerCase()))
     if (!hasJalanKhas && JALAN_KHAS.length > 0) {
       errors.push(`Alamat tidak sesuai ketentuan (wajib untuk wilayah ${KELURAHAN})`)
     }
   }
+  // ⭐ FIX: Kuota PJLP = bebas alamat untuk semua kartu (tidak ada validasi jalan khas)
  
   // RT (required, 1-3 digit) - DYNAMIC RANGE
   const rt = row.rt?.trim().replace(/\D/g, '')

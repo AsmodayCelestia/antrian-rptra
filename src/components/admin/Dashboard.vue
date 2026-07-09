@@ -90,6 +90,19 @@
           </select>
         </div>
 
+        <!-- Filter Status -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+          <select v-model="filterStatus" class="border rounded-lg px-3 py-2 bg-white min-w-[150px]">
+            <option value="all">Semua Status</option>
+            <option value="menunggu">⏳ Menunggu</option>
+            <option value="terverifikasi">✓ Terverifikasi</option>
+            <option value="selesai">✅ Selesai</option>
+            <option value="ditolak">❌ Ditolak</option>
+            <option value="batal">🚫 Batal</option>
+          </select>
+        </div>
+
         <!-- Filter Bulan -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Bulan</label>
@@ -161,6 +174,7 @@
         Menampilkan {{ paginatedRows.length }} dari {{ filteredRows.length }} data 
         <span v-if="searchKKATM">(filter pencarian aktif)</span>
         <span v-if="filterTipeKuota !== 'all'"> | Tipe: {{ filterTipeKuota.toUpperCase() }}</span>
+        <span v-if="filterStatus !== 'all'"> | Status: {{ filterStatus.toUpperCase() }}</span>
       </p>
     </div>
 
@@ -1026,6 +1040,7 @@ const filterTipeKuota = ref('all')
 const filterBulan = ref(new Date().getMonth() + 1)
 const filterTahun = ref(new Date().getFullYear())
 const filterKartu = ref('')
+const filterStatus = ref('all') // ⭐ BARU
 const searchKKATM = ref('')
 
 const currentPage = ref(1)
@@ -1041,19 +1056,28 @@ const kartuOptions = ['KJP', 'PJLP', 'Kartu Anak Jakarta', 'Kartu Lansia Jakarta
 const filteredRows = computed(() => {
   let result = [...antrianList.value]
   
+  // Filter Tipe Kuota
   if (filterTipeKuota.value !== 'all') {
     result = result.filter(item => item.kuota_bulanan?.tipe_kuota === filterTipeKuota.value)
   }
   
+  // ⭐ BARU: Filter Status
+  if (filterStatus.value !== 'all') {
+    result = result.filter(item => item.status === filterStatus.value)
+  }
+  
+  // Filter Bulan/Tahun
   result = result.filter(item => {
     const date = new Date(item.created_at)
     return date.getMonth() + 1 === filterBulan.value && date.getFullYear() === filterTahun.value
   })
   
+  // Filter Kartu
   if (filterKartu.value) {
     result = result.filter(item => item.kartu_pemanfaat === filterKartu.value)
   }
   
+  // Search KK/ATM
   if (searchKKATM.value) {
     const q = searchKKATM.value.replace(/\D/g, '')
     if (q.length > 0) {
@@ -1105,7 +1129,7 @@ const stats = computed(() => ({
   selesai: filteredRows.value.filter(d => d.status === 'selesai').length
 }))
 
-watch([filterBulan, filterTahun, filterKartu, searchKKATM, filterTipeKuota], () => {
+watch([filterBulan, filterTahun, filterKartu, searchKKATM, filterTipeKuota, filterStatus], () => {
   currentPage.value = 1
 })
 
@@ -1347,7 +1371,7 @@ const downloadExcel = () => {
     ...XLSX.utils.sheet_to_json(wsData, { header: 1 })
   ])
 
-  const range = XLSX.utils.decode_range(ws['!ref'])
+    const range = XLSX.utils.decode_range(ws['!ref'])
   
   ws['A1'].s = { font: { bold: true, size: 16, color: { rgb: '1E40AF' } } }
   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 15 } }]
@@ -1408,6 +1432,7 @@ const resetFilters = () => {
   filterKartu.value = ''
   searchKKATM.value = ''
   filterTipeKuota.value = 'all'
+  filterStatus.value = 'all' // ⭐ BARU
   currentPage.value = 1
 }
 
