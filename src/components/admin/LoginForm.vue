@@ -49,7 +49,7 @@
           <button 
             type="submit" 
             :disabled="loading"
-            class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3 rounded-lg transition-colors"
+            class="w-full bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400 text-white font-semibold py-3 rounded-lg transition-colors"
           >
             <span v-if="loading" class="flex items-center justify-center gap-2">
               <span class="animate-spin">⏳</span> Loading...
