@@ -8,7 +8,7 @@
         <div class="text-6xl mb-4">📷</div>
         <button 
           @click="startScan" 
-          class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold"
+          class="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-semibold"
         >
           Mulai Scan QR
         </button>
@@ -79,8 +79,8 @@
             v-for="item in searchResults" 
             :key="item.id"
             @click="pilihHasil(item)"
-            class="border rounded-lg p-3 cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors"
-            :class="selectedResult?.id === item.id ? 'bg-blue-50 border-blue-500' : 'bg-gray-50'"
+            class="border rounded-lg p-3 cursor-pointer hover:bg-blue-50 hover:border-orange-300 transition-colors"
+            :class="selectedResult?.id === item.id ? 'bg-blue-50 border-orange-500' : 'bg-gray-50'"
           >
             <div class="flex justify-between items-start">
               <div>
