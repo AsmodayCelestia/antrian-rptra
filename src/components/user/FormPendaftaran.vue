@@ -261,7 +261,7 @@
         <button 
           type="submit" 
           :disabled="loading || isLoadingConfig || !configReady"
-          class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+          class="w-full bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
         >
           <span v-if="loading" class="animate-spin">⏳</span>
           <span>{{ loading ? 'Memproses...' : 'Lanjutkan ➔' }}</span>
