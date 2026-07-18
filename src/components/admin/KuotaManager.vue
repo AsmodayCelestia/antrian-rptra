@@ -17,13 +17,13 @@
     <div class="flex gap-3 mb-4">
       <button 
         @click="filterTipe = 'all'"
-        :class="['px-4 py-2 rounded-lg text-sm font-medium transition-colors', filterTipe === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300']"
+        :class="['px-4 py-2 rounded-lg text-sm font-medium transition-colors', filterTipe === 'all' ? 'bg-orange-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300']"
       >
         Semua
       </button>
       <button 
         @click="filterTipe = 'umum'"
-        :class="['px-4 py-2 rounded-lg text-sm font-medium transition-colors', filterTipe === 'umum' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300']"
+        :class="['px-4 py-2 rounded-lg text-sm font-medium transition-colors', filterTipe === 'umum' ? 'bg-orange-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300']"
       >
         Umum
       </button>
@@ -321,7 +321,7 @@
               v-model="editForm.dibuka" 
               type="checkbox" 
               id="editBukaPendaftaran"
-              class="w-4 h-4 text-blue-600 rounded"
+              class="w-4 h-4 text-orange-600 rounded"
             >
             <label for="editBukaPendaftaran" class="text-sm text-gray-700">
               Buka pendaftaran
