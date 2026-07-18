@@ -7,7 +7,7 @@
       </div>
       <button 
         @click="openCreateModal"
-        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2"
+        class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2"
       >
         <span>➕</span> Buat Kuota Baru
       </button>
@@ -130,7 +130,7 @@
                 <div class="flex justify-center gap-2">
                   <button 
                     @click="editKuota(item)"
-                    class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                    class="p-2 text-orange-600 hover:bg-orange-50 rounded-lg"
                     title="Edit Kuota"
                   >
                     ✏️
@@ -236,7 +236,7 @@
               v-model="form.dibuka" 
               type="checkbox" 
               id="bukaPendaftaran"
-              class="w-4 h-4 text-blue-600 rounded"
+              class="w-4 h-4 text-orange-600 rounded"
             >
             <label for="bukaPendaftaran" class="text-sm text-gray-700">
               Buka pendaftaran sekarang (manual)
