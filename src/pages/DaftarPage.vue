@@ -77,7 +77,7 @@
     <!-- Modal Ketentuan -->
     <div v-if="showModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
-        <div class="bg-blue-600 text-white p-4 rounded-t-xl shrink-0">
+        <div class="bg-orange-600 text-white p-4 rounded-t-xl shrink-0">
           <h2 class="text-lg font-bold text-center">PELAKSANAAN PANGAN MURAH</h2>
           <p class="text-center text-blue-100 text-sm">SISTEM ONLINE</p>
         </div>
@@ -99,79 +99,79 @@
             </h3>
             <ul class="space-y-2 text-xs">
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">1.</span>
+                <span class="text-orange-600 font-bold">1.</span>
                 <span>Wajib melakukan pendaftaran melalui link online.</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">2.</span>
+                <span class="text-orange-600 font-bold">2.</span>
                 <span>Pendaftaran hanya berlaku untuk warga wilayah <strong>Kelurahan Pademangan Timur</strong>.</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">3.</span>
+                <span class="text-orange-600 font-bold">3.</span>
                 <span>Satu (1) Kartu Keluarga (KK) hanya dapat mendaftar satu kali.</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">4.</span>
+                <span class="text-orange-600 font-bold">4.</span>
                 <span>Nomor KK tidak dapat digunakan lebih dari satu kali.</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">5.</span>
+                <span class="text-orange-600 font-bold">5.</span>
                 <span>Pendaftaran akan ditutup otomatis apabila kuota telah terpenuhi.</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">6.</span>
+                <span class="text-orange-600 font-bold">6.</span>
                 <span>Wajib membawa <strong>screenshot (tangkapan layar)</strong> bukti pendaftaran.</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">7.</span>
+                <span class="text-orange-600 font-bold">7.</span>
                 <span>Wajib membawa <strong>fotokopi Kartu Keluarga (KK)</strong>.</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">8.</span>
+                <span class="text-orange-600 font-bold">8.</span>
                 <span>Menunjukkan <strong>KTP asli</strong> saat verifikasi.</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">9.</span>
+                <span class="text-orange-600 font-bold">9.</span>
                 <span>Jadwal penggesekan pukul <strong>08.00 s/d 11.00 WIB</strong> dihari berikutnya (H+1).</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">10.</span>
+                <span class="text-orange-600 font-bold">10.</span>
                 <span>Apabila penggesekan melewati batas waktu yang ditentukan maka nomor antrian dinyatakan <strong class="text-red-600">hangus</strong>.</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">11.</span>
+                <span class="text-orange-600 font-bold">11.</span>
                 <span>Nomor antrian <strong class="text-red-600">tidak dapat dipindahtangankan</strong>.</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">12.</span>
+                <span class="text-orange-600 font-bold">12.</span>
                 <span><strong class="text-red-600">Tidak melayani titip nomor antrian</strong>.</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">13.</span>
+                <span class="text-orange-600 font-bold">13.</span>
                 <span>Data akan diverifikasi oleh petugas.</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">14.</span>
+                <span class="text-orange-600 font-bold">14.</span>
                 <span>Petugas berhak <strong class="text-red-600">membatalkan pendaftaran</strong> apabila data tidak sesuai.</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">15.</span>
+                <span class="text-orange-600 font-bold">15.</span>
                 <span>Kesalahan pengisian data menjadi <strong>tanggung jawab pendaftar</strong>.</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">16.</span>
+                <span class="text-orange-600 font-bold">16.</span>
                 <span>Persediaan pangan terbatas sesuai kuota.</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">17.</span>
+                <span class="text-orange-600 font-bold">17.</span>
                 <span class="text-red-600 font-semibold">Apabila melewati batas waktu Pengambilan Barang yang sudah ditentukan maka barang hangus.</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">18.</span>
+                <span class="text-orange-600 font-bold">18.</span>
                 <span>Wajib menjaga ketertiban dan kebersihan.</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600 font-bold">19.</span>
+                <span class="text-orange-600 font-bold">19.</span>
                 <span class="text-red-600 font-semibold">Tidak diperkenankan anak dibawah umur untuk melakukan antrian swipe kartu dan pada saat pengambilan barang komoditas.</span>
               </li>
             </ul>
@@ -187,7 +187,7 @@
           </div>
           <div class="w-full bg-gray-200 rounded-full h-2">
             <div 
-              class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              class="bg-orange-600 h-2 rounded-full transition-all duration-300"
               :style="{ width: `${scrollProgress}%` }"
             ></div>
           </div>
@@ -205,7 +205,7 @@
               type="checkbox" 
               v-model="hasAgreed"
               :disabled="!hasScrolledToBottom"
-              class="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 mt-0.5 shrink-0 disabled:cursor-not-allowed"
+              class="w-5 h-5 text-orange-600 rounded border-gray-300 focus:ring-orange-500 mt-0.5 shrink-0 disabled:cursor-not-allowed"
             >
             <span class="text-sm text-gray-700 select-none">
               Saya sudah membaca dan menyetujui semua ketentuan yang berlaku
@@ -218,7 +218,7 @@
             class="w-full py-3 rounded-lg font-bold transition-all duration-200"
             :class="[
               hasScrolledToBottom && hasAgreed
-                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
+                ? 'bg-orange-600 hover:bg-orange-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             ]"
           >
