@@ -17,7 +17,7 @@
         <tbody class="divide-y divide-gray-100">
           <tr v-for="item in rows" :key="item.id" class="hover:bg-gray-50">
             <td class="px-4 py-3 whitespace-nowrap">
-              <span class="font-bold text-blue-600">#{{ item.nomor_antrian?.toString().padStart(3, '0') }}</span>
+              <span class="font-bold text-orange-600">#{{ item.nomor_antrian?.toString().padStart(3, '0') }}</span>
             </td>
             <td class="px-4 py-3 whitespace-nowrap">
               <div class="font-medium">{{ item.nama_pemilik_atm }}</div>
