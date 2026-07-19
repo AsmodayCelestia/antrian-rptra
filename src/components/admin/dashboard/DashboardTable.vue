@@ -100,7 +100,7 @@
                 </template>
 
                 <template v-else-if="canEdit && item.status === 'terverifikasi'">
-                  <span class="text-blue-600 text-xs px-2 py-1">QR Scanner →</span>
+                  <span class="text-orange-600 text-xs px-2 py-1">QR Scanner →</span>
                 </template>
               </div>
             </td>
@@ -159,7 +159,7 @@
             :class="[
               'px-3 py-1 border rounded text-sm min-w-[32px]',
               currentPage === page 
-                ? 'bg-blue-600 text-white border-blue-600' 
+                ? 'bg-orange-600 text-white border-orange-600' 
                 : 'hover:bg-gray-50'
             ]"
           >
