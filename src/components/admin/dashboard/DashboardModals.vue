@@ -535,12 +535,12 @@
     <!-- Modal: Detail -->
     <div v-if="detailItem" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div class="bg-blue-600 text-white p-4 rounded-t-xl flex justify-between items-center">
+        <div class="bg-orange-600 text-white p-4 rounded-t-xl flex justify-between items-center">
           <div>
             <h3 class="text-xl font-bold">Detail Pendaftaran</h3>
             <p class="text-blue-100 text-sm">Nomor Antrian #{{ detailItem.nomor_antrian }}</p>
           </div>
-          <button @click="$emit('close-detail')" class="text-white hover:bg-blue-700 p-2 rounded-lg">✕</button>
+          <button @click="$emit('close-detail')" class="text-white hover:bg-orange-700 p-2 rounded-lg">✕</button>
         </div>
 
         <div class="p-6 space-y-6">

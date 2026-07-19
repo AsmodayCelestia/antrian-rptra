@@ -83,7 +83,7 @@
       <div class="space-y-3">
         <button 
           @click="downloadQR"
-          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg"
+          class="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 rounded-lg"
         >
           📥 Download QR
         </button>
