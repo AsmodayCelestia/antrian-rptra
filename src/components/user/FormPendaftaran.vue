@@ -354,7 +354,7 @@
             <button 
               @click="confirmSubmit"
               :disabled="loading"
-              class="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-3 rounded-lg font-medium transition-colors text-sm flex items-center justify-center gap-2"
+              class="flex-1 bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400 text-white py-3 rounded-lg font-medium transition-colors text-sm flex items-center justify-center gap-2"
             >
               <span v-if="loading" class="animate-spin text-xs">⏳</span>
               <span>{{ loading ? 'Memproses...' : '✅ Ya, Data Sudah Benar' }}</span>

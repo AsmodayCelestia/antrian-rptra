@@ -25,8 +25,8 @@
       <template v-if="canViewDashboard">
         <router-link 
           to="/admin/dashboard" 
-          class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 text-gray-700 transition-all"
-          active-class="bg-blue-100 text-blue-700 font-semibold"
+          class="flex items-center gap-3 p-3 rounded-lg hover:bg-orange-50 text-gray-700 transition-all"
+          active-class="bg-orange-100 text-orange-700 font-semibold"
         >
           <span>📊</span> 
           <span>Dashboard</span>
@@ -36,8 +36,8 @@
         <router-link 
           v-if="canManageKuota"
           to="/admin/kuota" 
-          class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 text-gray-700 transition-all"
-          active-class="bg-blue-100 text-blue-700 font-semibold"
+          class="flex items-center gap-3 p-3 rounded-lg hover:bg-orange-50 text-gray-700 transition-all"
+          active-class="bg-orange-100 text-orange-700 font-semibold"
         >
           <span>📅</span> 
           <span>Manajemen Kuota</span>
