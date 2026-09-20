@@ -63,9 +63,9 @@
         <div>
           <label class="text-sm text-gray-600">Bulan/Kuota</label>
           <select v-model="manualKuota" class="w-full border rounded-lg px-4 py-2 mt-1 bg-white">
-            <option v-for="k in kuotaOptions" :key="k.id" :value="k.id">
-              {{ formatMonthYear(k.bulan, k.tahun) }} - {{ k.rptra?.nama }}
-            </option>
+          <option v-for="k in kuotaOptions" :key="k.id" :value="k.id">
+            {{ formatMonthYear(k.bulan, k.tahun) }} - {{ k.rptra?.nama }} ({{ (k.tipe_kuota || 'umum').toUpperCase() }})
+          </option>
           </select>
         </div>
 
