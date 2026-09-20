@@ -88,13 +88,15 @@ export function useDashboard() {
     }
 
     if (searchKKATM.value) {
-      const q = searchKKATM.value.replace(/\D/g, '')
-      if (q.length > 0) {
-        result = result.filter(item =>
-          (item.nomor_kk && item.nomor_kk.includes(q)) ||
-          (item.nomor_atm && item.nomor_atm.includes(q))
-        )
-      }
+    const raw = searchKKATM.value.trim().toLowerCase()
+    const q = raw.replace(/\D/g, '')
+    result = result.filter(item => {
+        const matchNama = item.nama_pemilik_atm?.toLowerCase().includes(raw)
+        if (!q) return matchNama
+        return matchNama ||
+        (item.nomor_kk && item.nomor_kk.includes(q)) ||
+        (item.nomor_atm && item.nomor_atm.includes(q))
+    })
     }
 
     return result

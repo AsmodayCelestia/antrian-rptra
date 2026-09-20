@@ -36,21 +36,28 @@
           <select v-model="searchType" class="w-full border rounded-lg px-4 py-2 mt-1 bg-white">
             <option value="kk">Nomor KK</option>
             <option value="atm">Nomor ATM</option>
+            <option value="nama">Nama</option>
           </select>
         </div>
 
         <div>
           <label class="text-sm text-gray-600">
-            {{ searchType === 'kk' ? 'Nomor KK' : 'Nomor ATM' }}
+            {{ searchType === 'kk' ? 'Nomor KK' : searchType === 'atm' ? 'Nomor ATM' : 'Nama Pemilik' }}
           </label>
           <input 
             v-model="manualNomor" 
             type="text" 
-            :placeholder="searchType === 'kk' ? 'Contoh: 3175091234567890' : 'Contoh: 451234567890'"
+            :placeholder="searchType === 'kk' 
+              ? 'Contoh: 3175091234567890' 
+              : searchType === 'atm' 
+                ? 'Contoh: 451234567890' 
+                : 'Ketik nama warga...'"
             class="w-full border rounded-lg px-4 py-2 mt-1 font-mono"
             maxlength="20"
           >
-          <p class="text-xs text-gray-500 mt-1">Masukkan minimal 4 digit terakhir</p>
+          <p class="text-xs text-gray-500 mt-1">
+            {{ searchType === 'nama' ? 'Masukkan minimal 3 huruf' : 'Masukkan minimal 4 digit terakhir' }}
+          </p>
         </div>
 
         <div>
@@ -64,7 +71,7 @@
 
         <button 
           @click="cariManual" 
-          :disabled="!manualNomor || manualNomor.length < 4 || !manualKuota || loading"
+          :disabled="!manualNomor || (searchType === 'nama' ? manualNomor.length < 3 : manualNomor.length < 4) || !manualKuota || loading"
           class="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white py-2 rounded-lg font-medium"
         >
           {{ loading ? 'Mencari...' : '🔍 Cari Data' }}
@@ -366,7 +373,9 @@ const verifyAccess = (item) => {
 }
 
 const cariManual = async () => {
-  if (!manualNomor.value || manualNomor.value.length < 4 || !manualKuota.value) return
+  // ⭐ BARU: validasi minimal input dibedakan per tipe, langsung inline
+  if (!manualNomor.value || !manualKuota.value) return
+  if (searchType.value === 'nama' ? manualNomor.value.length < 3 : manualNomor.value.length < 4) return
   
   loading.value = true
   error.value = null
@@ -388,10 +397,13 @@ const cariManual = async () => {
       query = query.eq('rptra_id', user.value?.rptra_id)
     }
     
+    // ⭐ BARU: tambah kondisi nama
     if (searchType.value === 'kk') {
       query = query.ilike('nomor_kk', `%${searchQuery}%`)
-    } else {
+    } else if (searchType.value === 'atm') {
       query = query.ilike('nomor_atm', `%${searchQuery}%`)
+    } else {
+      query = query.ilike('nama_pemilik_atm', `%${searchQuery}%`)
     }
     
     const { data, error: supaError } = await query.limit(10)
