@@ -156,12 +156,72 @@ const generateQR = async () => {
   }
 }
 
-const downloadQR = () => {
-  if (!qrCanvas.value) return
-  const link = document.createElement('a')
-  link.download = `antrian-${antrian.value.nomor_antrian}.png`
-  link.href = qrCanvas.value.toDataURL()
-  link.click()
+const downloadQR = async () => {
+  if (!antrian.value) return
+
+  try {
+    // 1. Generate QR ke canvas terpisah
+    const qrData = JSON.stringify({
+      nomor: antrian.value.nomor_antrian,
+      kuota_id: antrian.value.kuota_id
+    })
+    const qrCanvasTemp = document.createElement('canvas')
+    await QRCode.toCanvas(qrCanvasTemp, qrData, { width: 400, margin: 1 })
+
+    // 2. Bikin canvas tiket
+    const card = document.createElement('canvas')
+    const W = 800
+    const H = 1050
+    card.width = W
+    card.height = H
+    const ctx = card.getContext('2d')
+
+    // Background putih
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, W, H)
+
+    // Header oranye
+    ctx.fillStyle = '#ea580c'
+    ctx.fillRect(0, 0, W, 150)
+    ctx.fillStyle = '#ffffff'
+    ctx.textAlign = 'center'
+    ctx.font = 'bold 36px Arial'
+    ctx.fillText('TIKET PENGAMBILAN PANGAN SUBSIDI', W / 2, 65)
+    ctx.font = '24px Arial'
+    ctx.fillText(antrian.value.rptra?.nama || 'RPTRA', W / 2, 115)
+
+    // 3. Taruh QR di tengah
+    ctx.drawImage(qrCanvasTemp, (W - 400) / 2, 190, 400, 400)
+
+    // 4. Info pendaftar
+    const info = [
+      // ['Nomor Antrian', `#${String(antrian.value.nomor_antrian).padStart(3, '0')}`],
+      ['Nama', antrian.value.nama_pemilik_atm],
+      ['Kartu Pemanfaat', antrian.value.kartu_pemanfaat],
+      ['Verifikasi', `${hariPemberkasan.value} · 08.00-11.00 WIB`],
+      ['Kelurahan', `RPTRA Patimura ${antrian.value.kelurahan}`]
+    ]
+
+    let y = 660
+    info.forEach(([label, value]) => {
+      ctx.fillStyle = '#6b7280'
+      ctx.font = '20px Arial'
+      ctx.fillText(label, W / 2, y)
+      ctx.fillStyle = '#111827'
+      ctx.font = 'bold 28px Arial'
+      ctx.fillText(value || '-', W / 2, y + 36)
+      y += 78
+    })
+
+    // 5. Download
+    const link = document.createElement('a')
+    link.download = `Tiket-${String(antrian.value.nama_pemilik_atm).padStart(3, '0')}.png`
+    link.href = card.toDataURL('image/png')
+    link.click()
+  } catch (err) {
+    console.error('Download tiket gagal:', err)
+    alert('Gagal membuat tiket')
+  }
 }
 
 onMounted(async () => {
