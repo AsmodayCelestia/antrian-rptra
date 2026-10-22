@@ -189,22 +189,37 @@ export const updateStatusAntrian = async (id, status, alasan = null) => {
 }
 
 // Get all antrian - dengan filter RPTRA untuk non-moderator
+// ⭐ FIX: Pagination loop — PostgREST (Supabase) default cap 1000 rows per request.
+// Tanpa ini, dashboard cuma terima 1000 data terbaru dan bulan-bulan lama silent-drop.
 export const getAllAntrian = async () => {
-  let query = supabase
-    .from('antrian')
-    .select('*, rptra(nama), kuota_bulanan(bulan, tahun, tipe_kuota), nomor_kk, nomor_atm')
-    .order('created_at', { ascending: false })
-  
-  if (!canViewAllRptra()) {
-    if (!user.value?.rptra_id) {
-      throw new Error('Session tidak valid - RPTRA ID tidak ditemukan')
+  const PAGE_SIZE = 1000
+  const allRows = []
+  let from = 0
+
+  while (true) {
+    let query = supabase
+      .from('antrian')
+      .select('*, rptra(nama), kuota_bulanan(bulan, tahun, tipe_kuota), nomor_kk, nomor_atm')
+      .order('created_at', { ascending: false })
+      .range(from, from + PAGE_SIZE - 1)
+
+    if (!canViewAllRptra()) {
+      if (!user.value?.rptra_id) {
+        throw new Error('Session tidak valid - RPTRA ID tidak ditemukan')
+      }
+      query = query.eq('rptra_id', user.value.rptra_id)
     }
-    query = query.eq('rptra_id', user.value.rptra_id)
+
+    const { data, error } = await query
+    if (error) throw error
+
+    allRows.push(...data)
+
+    if (data.length < PAGE_SIZE) break // halaman terakhir
+    from += PAGE_SIZE
   }
-  
-  const { data, error } = await query
-  if (error) throw error
-  return data
+
+  return allRows
 }
 
 // Get antrian by ID - dengan ownership check
