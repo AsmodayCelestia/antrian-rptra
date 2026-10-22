@@ -388,12 +388,15 @@ const rwOptions = computed(() => {
 })
 
 const jalanKhasList = computed(() => {
-  return getJalanKhas()
+  const list = getJalanKhasList()  // ← bukan getJalanKhas()
+  return Array.isArray(list) ? list : []
 })
 
 const jalanKhasExample = computed(() => {
-  const list = jalanKhasList.value
-  return list.length > 0 ? list[0].charAt(0).toUpperCase() + list[0].slice(1) : 'Unknown'
+  const list = jalanKhasList.value  // sekarang selalu array
+  return list.length > 0
+    ? list[0].charAt(0).toUpperCase() + list[0].slice(1)
+    : ''
 })
 
 const rtRangeText = computed(() => {
@@ -494,7 +497,7 @@ const validators = {
     
     // Kuota umum = harus jalan khas untuk SEMUA kartu (termasuk PJLP)
     const lowerAlamat = val.toLowerCase().trim()
-    const jalanKhas = getJalanKhas()
+    const jalanKhas = getJalanKhasList()
     
     if (jalanKhas.length === 0) {
       return '' // ga ada jalan khas di config, aman
