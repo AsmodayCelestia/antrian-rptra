@@ -618,9 +618,15 @@
             </template>
             
             <template v-else-if="detailItem.status === 'terverifikasi'">
-              <div class="flex-1 bg-blue-50 border border-blue-200 text-blue-700 py-2 rounded-lg text-center text-sm flex items-center justify-center gap-2">
-                <span>⏳</span> Menunggu swipe kartu
-              </div>
+                <button 
+                    @click="$emit('detail-selesai', detailItem.id); $emit('close-detail')"
+                    class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2"
+                >
+                    ✅ Tandai Selesai
+                </button>
+                <div class="flex-1 bg-blue-50 border border-blue-200 text-blue-700 py-2 rounded-lg text-center text-sm flex items-center justify-center gap-2">
+                    <span>⏳</span> Menunggu swipe kartu
+                </div>
             </template>
             
             <template v-else-if="detailItem.status === 'menunggu'">
@@ -711,7 +717,7 @@ const emit = defineEmits([
   'close-pilih-kuota', 'pilih-kuota', 'lanjut-form', 'lanjut-csv',
   'close-csv-upload', 'close-csv-results', 'csv-file-change', 'csv-ganti-file',
   'submit-csv', 'download-csv-report',
-  'close-detail', 'detail-download-qr', 'detail-open-wa', 'detail-verifikasi', 'detail-tolak',
+  'close-detail', 'detail-download-qr', 'detail-open-wa', 'detail-verifikasi', 'detail-tolak', 'detail-selesai',
   'close-edit', 'submit-edit', 'update-edit-form',
   'update-alasan-tolak', 'update-alasan-lainnya', 'close-tolak', 'submit-tolak'
 ])

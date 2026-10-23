@@ -100,7 +100,14 @@
                 </template>
 
                 <template v-else-if="canEdit && item.status === 'terverifikasi'">
-                  <span class="text-orange-600 text-xs px-2 py-1">QR Scanner →</span>
+                    <button 
+                        @click="$emit('update-status', item.id, 'selesai')"
+                        class="bg-green-700 text-white px-2 py-1 rounded text-xs hover:bg-green-800"
+                        title="Tandai Selesai"
+                    >
+                        ✅ Done
+                    </button>
+                    <span class="text-orange-600 text-xs px-2 py-1">QR Scanner →</span>
                 </template>
               </div>
             </td>

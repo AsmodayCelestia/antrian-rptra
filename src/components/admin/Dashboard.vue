@@ -99,6 +99,7 @@
       @update-alasan-tolak="alasanTolak = $event"
       @update-alasan-lainnya="alasanLainnya = $event"
       @close-tolak="closeTolakModal"
+      @detail-selesai="(id) => { updateStatus(id, 'selesai'); closeDetail() }" 
       @submit-tolak="submitTolak"
       @update-edit-form="editForm = $event"
     />
