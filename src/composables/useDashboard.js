@@ -517,20 +517,78 @@ export function useDashboard() {
 
   const closeDetail = () => { detailItem.value = null }
 
-  // ========== QR ==========
-  const downloadQR = async (item) => {
+    // ========== QR ==========
+    const downloadQR = async (item) => {
     try {
-      const qrData = JSON.stringify({ nomor: item.nomor_antrian, kuota_id: item.kuota_id })
-      const canvas = document.createElement('canvas')
-      await QRCode.toCanvas(canvas, qrData, { width: 400, margin: 2 })
-      const link = document.createElement('a')
-      link.download = `QR-${item.nomor_antrian.toString().padStart(3, '0')}.png`
-      link.href = canvas.toDataURL('image/png')
-      link.click()
+        const hariIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+        const bulanIndo = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
+
+        // Hari pemberkasan = H+1 dari created_at
+        const createdDate = new Date(item.created_at)
+        const nextDay = new Date(createdDate)
+        nextDay.setDate(createdDate.getDate() + 1)
+        const hariPemberkasan = `${hariIndo[nextDay.getDay()]}, ${nextDay.getDate()} ${bulanIndo[nextDay.getMonth()]} ${nextDay.getFullYear()}`
+
+        // 1. Generate QR
+        const qrData = JSON.stringify({ nomor: item.nomor_antrian, kuota_id: item.kuota_id })
+        const qrCanvasTemp = document.createElement('canvas')
+        await QRCode.toCanvas(qrCanvasTemp, qrData, { width: 400, margin: 1 })
+
+        // 2. Canvas tiket
+        const card = document.createElement('canvas')
+        const W = 800
+        const H = 1050
+        card.width = W
+        card.height = H
+        const ctx = card.getContext('2d')
+
+        // Background putih
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, W, H)
+
+        // Header oranye
+        ctx.fillStyle = '#ea580c'
+        ctx.fillRect(0, 0, W, 150)
+        ctx.fillStyle = '#ffffff'
+        ctx.textAlign = 'center'
+        ctx.font = 'bold 36px Arial'
+        ctx.fillText('TIKET PENGAMBILAN PANGAN SUBSIDI', W / 2, 65)
+        ctx.font = '24px Arial'
+        ctx.fillText(item.rptra?.nama || 'RPTRA', W / 2, 115)
+
+        // 3. QR di tengah
+        ctx.drawImage(qrCanvasTemp, (W - 400) / 2, 190, 400, 400)
+
+        // 4. Info pendaftar
+        const info = [
+        ['Nama', item.nama_pemilik_atm],
+        ['Kartu Pemanfaat', item.kartu_pemanfaat],
+        ['Verifikasi', `${hariPemberkasan} · 08.00-11.00 WIB`],
+        ['Kelurahan', `RPTRA Patimura ${item.kelurahan}`]
+        ]
+
+        let y = 660
+        info.forEach(([label, value]) => {
+        ctx.fillStyle = '#6b7280'
+        ctx.font = '20px Arial'
+        ctx.fillText(label, W / 2, y)
+        ctx.fillStyle = '#111827'
+        ctx.font = 'bold 28px Arial'
+        ctx.fillText(value || '-', W / 2, y + 36)
+        y += 78
+        })
+
+        // 5. Download
+        const link = document.createElement('a')
+        const namaBersih = (item.nama_pemilik_atm || 'Pendaftar').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_')
+        link.download = `Tiket-${namaBersih}.png`
+        link.href = card.toDataURL('image/png')
+        link.click()
     } catch (err) {
-      alert('Gagal generate QR')
+        console.error('Download tiket gagal:', err)
+        alert('Gagal generate tiket')
     }
-  }
+    }
 
   // ========== WHATSAPP ==========
   const openWhatsApp = async (item) => {
