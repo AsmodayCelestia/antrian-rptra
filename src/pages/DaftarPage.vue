@@ -39,8 +39,8 @@
       <!-- Full -->
       <div v-else-if="scheduleStatus === 'full'" class="bg-red-50 text-red-700 p-6 rounded-xl text-center">
         <div class="text-4xl mb-2">📛</div>
-        <h3 class="font-bold text-lg">Kuota Penuh</h3>
-        <p class="mt-2">Semua kuota telah terisi. Silakan tunggu periode berikutnya.</p>
+        <h3 class="font-bold text-lg">Kuota Habis</h3>
+        <p class="mt-2">Semua kuota telah terisi</p>
       </div>
 
       <!-- Available -->
